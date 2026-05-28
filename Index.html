@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bosta Order Lookup</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1117; --surface: #181c27; --border: #2a2f45;
+      --accent: #e63030; --accent2: #ff5c5c;
+      --text: #e8eaf0; --text-muted: #7a7f99; --text-dim: #4a5070;
+      --green: #2dce7a; --yellow: #f5c842; --blue: #4a9eff; --orange: #ff9f43;
+      --mono: 'JetBrains Mono', monospace; --sans: 'IBM Plex Sans Arabic', sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; padding: 32px 16px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .header { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; }
+    .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); flex-shrink: 0; }
+    .header h1 { font-size: 18px; font-weight: 500; }
+    .header span { font-size: 13px; color: var(--text-muted); margin-right: auto; font-family: var(--mono); }
+    .search-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+    .search-row { display: flex; gap: 12px; align-items: flex-end; }
+    .input-wrap { flex: 1; }
+    .input-wrap label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.05em; text-transform: uppercase; }
+    input[type="text"] { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-family: var(--mono); font-size: 15px; outline: none; transition: border-color 0.2s; direction: ltr; }
+    input[type="text"]:focus { border-color: var(--accent); }
+    input[type="text"]::placeholder { color: var(--text-dim); }
+    .btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 12px 28px; font-family: var(--sans); font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s, transform 0.1s; white-space: nowrap; flex-shrink: 0; height: 46px; }
+    .btn:hover { background: var(--accent2); }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { background: var(--border); cursor: not-allowed; transform: none; }
+    .btn-green { background: var(--green); color: #0f1117; }
+    .btn-green:hover { background: #25b56a; }
+    .btn-green:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+    .config-row { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .config-row label { font-size: 11px; color: var(--text-dim); display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .config-row input { font-size: 12px; padding: 8px 12px; color: var(--text-muted); }
+    .status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); margin-top: 14px; min-height: 20px; }
+    .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status.error { color: var(--accent2); }
+    .status.success { color: var(--green); }
+    #results { opacity: 0; transform: translateY(8px); transition: opacity 0.3s, transform 0.3s; }
+    #results.visible { opacity: 1; transform: translateY(0); }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tab { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; font-size: 13px; font-family: var(--mono); color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+    .tab:hover { border-color: var(--text-dim); color: var(--text); }
+    .tab.active { border-color: var(--accent); color: var(--accent); background: rgba(230,48,48,0.08); }
+    .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .card-header-title { font-size: 12px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .card-body { padding: 20px; }
+    .tracking-hero { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+    .tracking-num { font-family: var(--mono); font-size: 26px; font-weight: 500; direction: ltr; }
+    .state-badge { padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; }
+    .state-delivered  { background: rgba(45,206,122,0.12);  color: var(--green);   border: 1px solid rgba(45,206,122,0.25); }
+    .state-pending    { background: rgba(245,200,66,0.12);  color: var(--yellow);  border: 1px solid rgba(245,200,66,0.25); }
+    .state-transit    { background: rgba(74,158,255,0.12);  color: var(--blue);    border: 1px solid rgba(74,158,255,0.25); }
+    .state-returned   { background: rgba(230,48,48,0.12);   color: var(--accent2); border: 1px solid rgba(230,48,48,0.25); }
+    .state-exception  { background: rgba(255,159,67,0.12);  color: var(--orange);  border: 1px solid rgba(255,159,67,0.25); }
+    .state-default    { background: rgba(120,127,153,0.12); color: var(--text-muted); border: 1px solid var(--border); }
+    .fields-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+    .field-value { font-size: 14px; color: var(--text); font-family: var(--mono); direction: ltr; text-align: right; }
+    .field-value.arabic { font-family: var(--sans); direction: rtl; text-align: right; }
+    .field-value.null-val { color: var(--text-dim); font-style: italic; font-family: var(--sans); font-size: 13px; }
+    .exception-box { background: rgba(255,159,67,0.08); border: 1px solid rgba(255,159,67,0.2); border-radius: 8px; padding: 12px 16px; margin-top: 16px; font-size: 13px; color: var(--orange); }
+    .exception-box strong { display: block; margin-bottom: 4px; font-size: 12px; letter-spacing: 0.05em; }
+    .sync-bar { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .sync-status { font-size: 13px; color: var(--text-muted); flex: 1; min-width: 0; }
+    .sync-status.success { color: var(--green); }
+    .sync-status.error   { color: var(--accent2); }
+    .raw-toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); cursor: pointer; user-select: none; padding: 14px 20px; border-top: 1px solid var(--border); transition: color 0.2s; }
+    .raw-toggle:hover { color: var(--text-muted); }
+    .raw-toggle .arrow { transition: transform 0.2s; font-size: 10px; }
+    .raw-toggle.open .arrow { transform: rotate(90deg); }
+    .raw-payload { display: none; padding: 0 20px 20px; }
+    .raw-payload.open { display: block; }
+    pre { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-family: var(--mono); font-size: 12px; color: var(--text-muted); overflow-x: auto; line-height: 1.6; direction: ltr; text-align: left; white-space: pre-wrap; word-break: break-all; }
+    @media (max-width: 600px) { .search-row { flex-direction: column; } .btn { width: 100%; } .tracking-num { font-size: 20px; } .fields-grid { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo-dot"></div>
+    <h1>Bosta Order Lookup</h1>
+    <span>EcomModa</span>
+  </div>
+  <div class="search-box">
+    <div class="search-row">
+      <div class="input-wrap">
+        <label>رقم الأوردر (Business Reference)</label>
+        <input type="text" id="orderInput" placeholder="e.g. 1234" />
+      </div>
+      <button class="btn" id="searchBtn" onclick="lookup()">بحث</button>
+    </div>
+    <div class="config-row">
+      <label>Worker URL</label>
+      <input type="text" id="workerUrl" value="https://bosta-lookup.ecommoda24.workers.dev" />
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+  <div id="results"></div>
+</div>
+<script>
+  document.getElementById('orderInput').addEventListener('keydown', e => { if (e.key === 'Enter') lookup(); });
+
+  function setStatus(msg, type='') {
+    const el = document.getElementById('status');
+    el.className = 'status ' + type;
+    el.innerHTML = type==='loading'
+      ? `<div class="spinner"></div><span>${msg}</span>`
+      : `<span>${msg}</span>`;
+  }
+
+  function fval(v) {
+    if (v===null||v===undefined||v==='') return `<span class="field-value null-val">—</span>`;
+    const isAr = /[\u0600-\u06FF]/.test(String(v));
+    return `<span class="field-value${isAr?' arabic':''}">${v}</span>`;
+  }
+
+  function makeFields(obj) {
+    return Object.entries(obj).map(([l,v]) =>
+      `<div class="field"><span class="field-label">${l}</span>${fval(v)}</div>`
+    ).join('');
+  }
+
+  const STATE_MAP = {
+    10: "Pickup requested", 11: "Waiting for route", 20: "Route Assigned",
+    21: "Picked up from business", 22: "Picking up from consignee", 23: "Picked up from consignee",
+    24: "Received at warehouse", 25: "Fulfilled", 30: "In transit between Hubs",
+    40: "Picking up", 41: "Picked up", 45: "Delivered", 46: "Returned to business",
+    47: "Exception", 48: "Terminated", 49: "Canceled", 100: "Lost",
+  };
+
+  function getStateLabel(state) {
+    return STATE_MAP[state?.code] || state?.value || state || "—";
+  }
+
+  function getStateClass(state) {
+    const label = getStateLabel(state).toLowerCase();
+    if (label.includes('delivered'))                                      return 'state-delivered';
+    if (label.includes('returned') || label.includes('rto'))             return 'state-returned';
+    if (label.includes('exception') || label.includes('ndr'))            return 'state-exception';
+    if (label.includes('transit') || label.includes('picked') || label.includes('route')) return 'state-transit';
+    if (label.includes('pickup') || label.includes('requested') || label.includes('warehouse')) return 'state-pending';
+    return 'state-default';
+  }
+
+  function fmtDate(d) {
+    if (!d) return null;
+    try { return new Date(d).toLocaleString('ar-EG',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+    catch { return d; }
+  }
+
+  function extractDeliveries(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw?.data?.deliveries)) return raw.data.deliveries;
+    if (Array.isArray(raw?.data))             return raw.data;
+    if (Array.isArray(raw?.deliveries))       return raw.deliveries;
+    if (raw?.trackingNumber)                  return [raw];
+    return [];
+  }
+
+  let allDeliveries = [], activeIdx = 0, currentOrderNumber = '';
+
+  async function lookup() {
+    const order = document.getElementById('orderInput').value.trim();
+    const workerUrl = document.getElementById('workerUrl').value.trim();
+    if (!order) { setStatus('ادخل رقم الأوردر','error'); return; }
+    document.getElementById('searchBtn').disabled = true;
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('results').classList.remove('visible');
+    setStatus('جاري البحث...','loading');
+    try {
+      const res  = await fetch(`${workerUrl}?order=${encodeURIComponent(order)}`);
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        setStatus(json.error||`خطأ: ${res.status}`,'error');
+        document.getElementById('searchBtn').disabled = false;
+        return;
+      }
+      allDeliveries    = extractDeliveries(json.raw);
+      currentOrderNumber = order;
+      if (allDeliveries.length===0) {
+        setStatus('مفيش delivery بهذا الـ business reference','error');
+        document.getElementById('searchBtn').disabled = false;
+        return;
+      }
+      activeIdx = 0;
+      renderResults();
+      setStatus(`تم جلب ${allDeliveries.length} delivery بنجاح`,'success');
+      document.getElementById('results').classList.add('visible');
+    } catch(err) {
+      setStatus(`Connection error: ${err.message}`,'error');
+    }
+    document.getElementById('searchBtn').disabled = false;
+  }
+
+  function renderResults() {
+    const container = document.getElementById('results');
+    const d = allDeliveries[activeIdx];
+
+    let tabsHtml = '';
+    if (allDeliveries.length > 1) {
+      tabsHtml = `<div class="tabs">${allDeliveries.map((del,i) =>
+        `<div class="tab${i===activeIdx?' active':''}" onclick="switchTab(${i})">${del.trackingNumber||'#'+(i+1)} <span style="font-size:11px;color:var(--text-dim);margin-right:4px">${del.type?.value||''}</span></div>`
+      ).join('')}</div>`;
+    }
+
+    const stateLabel = getStateLabel(d.state);
+    const stateCode  = d.state?.code!==undefined ? ` (${d.state.code})` : '';
+    const excHtml    = (d.exceptionReason||d.exceptionCode)
+      ? `<div class="exception-box"><strong>Exception / NDR</strong>${d.exceptionReason||''} ${d.exceptionCode?`(${d.exceptionCode})`:''}</div>` : '';
+    const receiverName = d.receiver?.fullName
+      || (d.receiver?.firstName ? `${d.receiver.firstName} ${d.receiver.lastName||''}`.trim() : null);
+
+    container.innerHTML = `
+      ${tabsHtml}
+      <div class="section-label">بيانات الشيبمنت</div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">Delivery Info</span>
+          <span style="font-family:var(--mono);font-size:12px;color:var(--text-dim)">${d.businessReference?`Ref: ${d.businessReference}`:''}</span>
+        </div>
+        <div class="card-body">
+          <div class="tracking-hero">
+            <span class="tracking-num">${d.trackingNumber||'—'}</span>
+            <span class="state-badge ${getStateClass(d.state)}">${stateLabel}${stateCode}</span>
+            ${d.maskedState?`<span style="font-size:12px;color:var(--text-muted)">${d.maskedState}</span>`:''}
+          </div>
+          <div class="fields-grid">${makeFields({
+            'Type':         d.type?.value||d.type||null,
+            'COD':          d.cod!=null?`${d.cod} EGP`:null,
+            'Attempts':     d.numberOfAttempts??d.noOfAttempts??null,
+            'Created At':   fmtDate(d.createdAt),
+            'Updated At':   fmtDate(d.updatedAt),
+            'Scheduled At': fmtDate(d.scheduledAt),
+            'Promise Date': d.deliveryPromiseDate||null,
+            'Notes':        d.notes||null,
+          })}</div>
+          ${excHtml}
+        </div>
+
+        <div class="sync-bar">
+          <button class="btn btn-green" id="syncBtn" onclick="syncToShopify()">⟳ Sync to Shopify</button>
+          <span class="sync-status" id="syncStatus"></span>
+        </div>
+
+        <div class="raw-toggle" id="rawToggle" onclick="toggleRaw()">
+          <span class="arrow">▶</span><span>Raw Payload</span>
+        </div>
+        <div class="raw-payload" id="rawPayload">
+          <pre>${escHtml(JSON.stringify(d,null,2))}</pre>
+        </div>
+      </div>
+
+      <div class="section-label">بيانات العميل</div>
+      <div class="card">
+        <div class="card-body">
+          <div class="fields-grid">${makeFields({
+            'Name':     receiverName,
+            'Phone':    d.receiver?.phone||null,
+            'Address':  d.dropOffAddress?.firstLine||null,
+            'City':     d.dropOffAddress?.city?.name||null,
+            'Zone':     d.dropOffAddress?.zone?.name||null,
+            'District': d.dropOffAddress?.district?.name||d.dropOffAddress?.district||null,
+          })}</div>
+        </div>
+      </div>`;
+  }
+
+  async function syncToShopify() {
+    const workerUrl  = document.getElementById('workerUrl').value.trim();
+    const syncBtn    = document.getElementById('syncBtn');
+    const syncStatus = document.getElementById('syncStatus');
+    const d          = allDeliveries[activeIdx];
+
+    if (!currentOrderNumber) { syncStatus.textContent = 'مفيش أوردر محدد'; syncStatus.className = 'sync-status error'; return; }
+
+    syncBtn.disabled     = true;
+    syncStatus.className = 'sync-status';
+    syncStatus.innerHTML = '<span style="opacity:.6">جاري الـ Sync...</span>';
+
+    try {
+      const res  = await fetch(`${workerUrl}/sync`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderNumber: currentOrderNumber,
+          delivery: d,
+        }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        syncStatus.textContent = `خطأ: ${json.error || res.status}`;
+        syncStatus.className   = 'sync-status error';
+      } else {
+        syncStatus.textContent = `✓ تم الـ Sync بنجاح — Tracking: ${json.synced?.trackingNumber || '—'}`;
+        syncStatus.className   = 'sync-status success';
+      }
+    } catch(err) {
+      syncStatus.textContent = `Connection error: ${err.message}`;
+      syncStatus.className   = 'sync-status error';
+    }
+
+    syncBtn.disabled = false;
+  }
+
+  function switchTab(i) { activeIdx = i; renderResults(); }
+  function toggleRaw() {
+    document.getElementById('rawToggle').classList.toggle('open');
+    document.getElementById('rawPayload').classList.toggle('open');
+  }
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
