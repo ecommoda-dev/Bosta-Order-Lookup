@@ -1,0 +1,17 @@
+name               = "bosta-order-lookup-worker"
+main               = "index.js"
+compatibility_date = "2025-01-01"
+workers_dev        = true
+
+[observability]
+enabled = true
+
+# ─── Vars (نص عادي — مش أسرار) ────────────────────────
+# دي بتتطبّق فعليًا مع Workers Builds.
+[vars]
+SHOP_DOMAIN = "6c7e1a-53.myshopify.com"
+
+# ⚠️ الأسرار مبتتكتبش هنا أبدًا.
+#    Worker → Settings → Variables and Secrets → علّم Secret:
+#    BOSTA_API_KEY · CLIENT_ID · CLIENT_SECRET
+#    وبعدها: Deployments → Version History → ⋯ → Promote version
