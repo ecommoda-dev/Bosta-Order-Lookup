@@ -1,0 +1,32 @@
+{
+  "tool": "bosta_lookup",
+  "since": null,
+  "types": {
+    "login": {
+      "result": null,
+      "stage": null,
+      "desc": "دخول موظف"
+    },
+    "logout": {
+      "result": null,
+      "stage": null,
+      "desc": "خروج موظف"
+    },
+    "rejected": {
+      "result": "rejected",
+      "stage": [
+        "lookup",
+        "write"
+      ],
+      "desc": "الاستعلام أو الكتابة اترفضت — أوردر مش موجود أو حالة مش صالحة"
+    },
+    "sync": {
+      "result": [
+        "error",
+        null
+      ],
+      "stage": "write",
+      "desc": "مزامنة ميتافيلدز الأوردر من بيانات شحنة بوسطة"
+    }
+  }
+}
