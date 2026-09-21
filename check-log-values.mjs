@@ -23,7 +23,7 @@ const STAGES  = ['lookup', 'write', 'preflight'];
 // أي شكل تاني يتزوّد هنا (أو في logAnchors جوه log-values.json).
 const DEFAULT_ANCHORS = [
   'writeLog', 'safeWriteLog', 'safeLog', 'writeLogsBatch',
-  'logWhere', 'logCycleBlocks', 'insertLog', 'addLog',
+  'logWhere', 'logCycleBlocks', 'insertLog', 'addLog', 'logSafe',
 ];
 
 // ── الإعدادات ──────────────────────────────────────────────────────────────
@@ -226,7 +226,7 @@ function asLiteral(expr, consts) {
     return expr.slice(1, -1);
   if (q === '`' && expr.endsWith('`') && !expr.includes('${') && expr.length >= 2)
     return expr.slice(1, -1);
-  if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(expr) && consts.has(expr)) return consts.get(expr);
+  if (/^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)?$/.test(expr) && consts.has(expr)) return consts.get(expr);
   return null;
 }
 
@@ -244,13 +244,46 @@ function resolve(expr, consts, depth = 0) {
   return null;
 }
 
+
+// ثوابت الأوبجكت: const LOG_TYPES = { FAILED: 'failed', … }  →  LOG_TYPES.FAILED
+const RE_OBJCONST = /(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:Object\.freeze\s*\(\s*)?\{/g;
+function collectObjConsts(src, mask, into){
+  for (const m of mask.matchAll(RE_OBJCONST)) {
+    const open = m.index + m[0].length - 1;
+    const end = matchSpan(src, open);
+    if (end < 0) continue;
+    const body = src.slice(open + 1, end);
+    const bmask = maskLiterals(body);
+    let depth = 0;
+    for (let i = 0; i < bmask.length; i++) {
+      const c = bmask[i];
+      if (PAIR[c]) { depth++; continue; }
+      if (c === ')' || c === '}' || c === ']') { depth--; continue; }
+      if (depth !== 0) continue;
+      const k = /^([A-Za-z_$][A-Za-z0-9_$]*|'[^']*'|"[^"]*")\s*:/.exec(bmask.slice(i));
+      if (!k) continue;
+      let j = i + k[0].length;
+      while (j < body.length && /\s/.test(body[j])) j++;
+      const q = body[j];
+      if (q === "'" || q === '"') {
+        const e = skipQuoted(body, j, q);
+        const key = k[1].replace(/^['"]|['"]$/g, '');
+        const full = m[1] + '.' + key;
+        if (!into.has(full)) into.set(full, body.slice(j + 1, e - 1));
+      }
+      i = j;
+    }
+  }
+}
+
 const files = walk(ROOT);
 
 // ثوابت على مستوى المشروع — عشان LOG_TYPE_X = 'x' اللي بتتستخدم في type:
 const CONSTS = new Map();
 for (const file of files) {
   const src = readFileSync(file, 'utf8');
-  for (const m of src.matchAll(RE_CONST)) if (!CONSTS.has(m[1])) CONSTS.set(m[1], m[3]);   // النصوص لازم تفضل هنا
+  for (const m of src.matchAll(RE_CONST)) if (!CONSTS.has(m[1])) CONSTS.set(m[1], m[3]);
+  collectObjConsts(src, maskLiterals(src), CONSTS);
 }
 
 for (const file of files) {
