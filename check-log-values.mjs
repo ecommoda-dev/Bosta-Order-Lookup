@@ -24,6 +24,9 @@ const STAGES  = ['lookup', 'write', 'preflight'];
 const DEFAULT_ANCHORS = [
   'writeLog', 'safeWriteLog', 'safeLog', 'writeLogsBatch',
   'logWhere', 'logCycleBlocks', 'insertLog', 'addLog', 'logSafe',
+  // 🔴 writeLogBatch (من غير s) — سابقة Order-SKU-Barcode-Printer: أداة كاملة
+  //    بـ739 صف في D1 فاتت الجرد بسبب حرف واحد في اسم الدالة.
+  'writeLogBatch', 'logBatch', 'writeLogs', 'saveLog', 'recordLog',
 ];
 
 // ── الإعدادات ──────────────────────────────────────────────────────────────
@@ -184,6 +187,8 @@ const used = new Map();   // type -> Set(مواضع)
 const dynamic = new Map();
 const otherTools = new Set();
 const noAnchorFiles = [];
+let sawInsertIntoLogs = false;  // الكاشف المستقل عن أسماء الدوال
+let sawAnySpan        = false;
 const spreads = new Map();     // نداء فيه ...spread — ممكن يخبّي type
 const blindSpans = [];         // نداء أنكور مفيهوش ولا مفتاح type بأي شكل
 const add = (map, key, at) => (map.get(key) ?? map.set(key, new Set()).get(key)).add(at);
@@ -307,6 +312,10 @@ for (const file of files) {
 
   // القيمة بتتقرا من src (المحتوى متمسوح في mask)، بس الموضع بيتأكد من mask —
   // عشان `tool: '…'` جوّه تعليق أو نص مايتحسبش قيمة حقيقية.
+  // 🔴 الكاشف اللي مايعتمدش على اسم دالة: الكتابة في D1 نفسها.
+  //    أي اسم دالة جديد مش في الأنكورز هيتمسك من هنا بدل ما يعدّي في صمت.
+  if (/INSERT\s+INTO\s+logs/i.test(src)) sawInsertIntoLogs = true;
+
   for (const m of src.matchAll(RE_TOOL))
     if (m[2] !== TOOL && mask.startsWith('tool', m.index)) otherTools.add(m[2]);
 
@@ -324,6 +333,18 @@ for (const file of files) {
     for (const a of mask.slice(open, end + 1).matchAll(RE_IDENT_ARG)) identArgs.add(a[1]);
   }
 
+  // ١ب) أنكور مسجّل في logAnchors وهو **تعريف دالة** (نمط الـbuilder: دالة
+  //      بتبني الصفوف وترجّعها، وحد تاني بيكتبها). المدى هنا جسم الدالة.
+  //      سابقة: Order-SKU-Barcode-Printer → buildPrintLogRows.
+  for (const name of (reg.logAnchors || [])) {
+    const re = new RegExp(`(?:function\\s+${name}\\s*\\(|(?:const|let|var)\\s+${name}\\s*=)`, 'g');
+    for (const d of mask.matchAll(re)) {
+      let probe = d.index + d[0].length, guard = 0;
+      while (probe < src.length && guard++ < 400 && src[probe] !== '{') probe++;
+      if (src[probe] === '{') { const end = matchSpan(src, probe); if (end > 0) spans.push([probe, end]); }
+    }
+  }
+
   // ٢) المتغيّرات اللي اتمرّرت للأنكور: ضُم مدى التعريف بتاعها كمان (logRows / mfChangeRows …)
   for (const name of identArgs) {
     const re = new RegExp(`(?:const|let|var)\\s+${name}\\s*=`, 'g');
@@ -334,6 +355,7 @@ for (const file of files) {
     }
   }
 
+  if (spans.length) sawAnySpan = true;
   if (!spans.length) { if (/\btype\s*:/.test(mask)) noAnchorFiles.push(rel); continue; }
 
   // ٣) استخرج مفتاح type من جوّه المديات — بكل أشكاله الشرعية.
@@ -387,7 +409,13 @@ for (const file of files) {
     // (هـ) مدى شكله صف لوج (فيه مفتاح tool) بس مفيهوش type بأي شكل =
     //      الاستخراج فشل، مش الكود. بنشرط وجود `tool` عشان منعدّش نداءات
     //      مش بتبني صف أصلاً (زي writeLogsBatch(db, rows) اللي الصف جوّه المتغيّر).
-    if (!found && new RegExp(`${NB}tool\\s*[:,}]`).test(chunk))
+    // ⚠️ الـspread بيلغي الحكم: القيمة ممكن تكون جايّة منه، فالاستخراج
+    //    مش فاشل — إحنا بس مش شايفينها من هنا. ده نمط الـwrapper الشائع:
+    //    `async function safeLog(env, entry) { writeLog(db, { tool, ...entry }) }`
+    //    والـtype بيتحط صريح في نداءات safeLog نفسها.
+    //    سابقة: Bosta-Order-Lookup index.js:925.
+    const hasSpread = RE_SPREAD.test(chunk); RE_SPREAD.lastIndex = 0;
+    if (!found && !hasSpread && new RegExp(`${NB}tool\\s*[:,}]`).test(chunk))
       blindSpans.push(`${rel}:${lineAt(s)}`);
   }
 }
@@ -416,8 +444,14 @@ for (const [type, meta] of Object.entries(reg.types || {})) {
 const acknowledged = new Set(reg.dynamicTypes || []);
 const unackDynamic = [...dynamic.keys()].filter((expr) => !acknowledged.has(expr));
 
+// الريبو بيكتب في logs بس مفيش ولا نداء اتعرف عليه = اسم دالة مش في الأنكورز.
+// الريبو بيكتب في logs والاستخراج طلّع **صفر** قيمة = الاستخراج فشل، مهما
+// كان السبب (اسم دالة غير معروف · نمط builder · أي شكل جديد). الكاشف ده
+// مايعتمدش على أي اسم، وده بالظبط اللي بيمنع تكرار فوات أداة كاملة.
+const orphanInsert = sawInsertIntoLogs && used.size === 0 && dynamic.size === 0;
+
 const fail = unregistered.length > 0 || badVocab.length > 0
-          || unackDynamic.length > 0 || blindSpans.length > 0;
+          || unackDynamic.length > 0 || blindSpans.length > 0 || orphanInsert;
 
 // ── التقرير ────────────────────────────────────────────────────────────────
 if (AS_JSON) {
@@ -446,6 +480,13 @@ if (unackDynamic.length) {
   console.log('   سجّلها في types، وضيف التعبير في dynamicTypes:');
   for (const expr of unackDynamic) console.log(`   ${[...dynamic.get(expr)].join(' · ')}  →  ${expr}`);
   console.log('');
+}
+if (orphanInsert) {
+  console.log('🔴 الريبو بيكتب في جدول logs والاستخراج طلّع صفر قيمة.');
+  console.log('   يعني اسم دالة الكتابة أو الباني مش في الأنكورز — زوّده في');
+  console.log('   logAnchors جوّه log-values.json. الاسم ممكن يكون دالة كتابة');
+  console.log('   (writeLogBatch) أو دالة بتبني الصفوف (buildPrintLogRows).');
+  console.log('   سابقة: Order-SKU-Barcode-Printer — 739 صف في D1 فاتت الجرد.\n');
 }
 if (blindSpans.length) {
   console.log('🔴 نداء كتابة لوج مفيهوش أي مفتاح type — الاستخراج فشل، مش الكود:');
