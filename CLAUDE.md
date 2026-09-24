@@ -2,12 +2,12 @@
 
 # البحث عن أوردر بوسطة (`Bosta-Order-Lookup`)
 
-![version](https://img.shields.io/badge/version-v2.0.0-blue)
+![version](https://img.shields.io/badge/version-v2.0.1-blue)
 
 **بتعمل إيه:** البحث عن شحنة بوسطة برقم الأوردر (Business Reference) وعرض حالتها،
 مع زرار لمزامنة 4 ميتافيلدز على أوردر Shopify، وسجل عمليات في D1.
 **مين بيستخدمها:** مخزن / خدمة عملاء
-**الإصدار:** Worker `v2.0.0` · الواجهة `v2.0.0`
+**الإصدار:** Worker `v2.0.1` · الواجهة `v2.0.0`
 
 ## الروابط
 
@@ -47,6 +47,16 @@ type    : sync · rejected · login · logout
 > 🔴 **بند إلزامي مفتوح:** الصف ده لازم يتسجّل في `ecommoda-constants` §7
 > **قبل** أول نشر. `bosta_lookup` مذكورة حاليًا في §11 بند 5 كأداة بلا D1 —
 > البند ده بيتقفل بتسجيل القيم فوق في جدول §7 وتحديث بند 5.
+
+### الحارس الديناميكي (الطبقة ٥ — من v2.0.1)
+
+`writeLog` بقى بيحمي نفسه وقت التشغيل: أي `(tool, type)` مش موجود في
+`LOG_REGISTRY` (مبني من `log-values.json` جنبه) بيتكتب **عادي** + يتعلّم
+`extra._unregistered = true` + يتسجّل تنبيه UPSERT في `log_value_alerts`
+(جدول مشترك على مستوى الستاك) — **مفيش رفض كتابة أبدًا**. التفاصيل →
+`ecommoda-worker-builder` Step 7-ج. الأداة دي مالهاش `writeLogsBatch` ولا
+أنكور تاني غير `writeLog` نفسها (اللي `safeLog` بتلفّها) — فالحارس في مكان
+واحد بس.
 
 ### استعلام خط الأساس
 
@@ -120,13 +130,13 @@ git show <sha>:Index.html
 
 | المهارة | الإصدار وقت آخر تعديل |
 |---|---|
-| ecommoda-worker-builder | v3.0.0 |
+| ecommoda-worker-builder | v3.7.0 |
 | ecommoda-html-builder | v7.0.0 |
 | bosta-api-helper | v1.1.0 |
-| ecommoda-constants | v2.1.0 |
+| ecommoda-constants | v3.1.0 |
 | shopify-graphql-helper | v2.1.0 |
 
-آخر مطابقة: 12-09-2026 · `index.js` v2.0.0 · `index.html` v2.0.0
+آخر مطابقة: 24-09-2026 · `index.js` v2.0.1 · `index.html` v2.0.0
 🔴 معلّقة: — لا شيء
 
 ## مسائل مفتوحة
