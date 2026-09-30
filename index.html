@@ -654,6 +654,17 @@ body {
 /* ── §TOOL — شاشة البحث ونتيجة الشحنة ─────────────────────────── */
 .search-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   box-shadow: var(--shadow); padding: 16px; margin-bottom: 14px; }
+.search-pair { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.search-col { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 300px; }
+.search-inline { display: flex; gap: 8px; }
+.search-inline .order-input { flex: 1; min-width: 0; }
+/* مربع رقم التتبع أحمر (نفس أسلوب ماسح بوسطة في الأدوات التانية) */
+.search-col.tn .order-input { border-color: var(--red); }
+.search-col.tn .order-input:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(220,38,38,.12); }
+.search-col.tn .order-input.has-value { border-color: var(--red); background: var(--red-light); }
+.search-col.tn .search-lbl { color: var(--red); }
+.search-col.tn .btn-search { background: var(--red); }
+.search-col.tn .btn-search:hover:not(:disabled) { background: var(--red-dark); }
 .search-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .search-g { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 220px; }
 .search-lbl { font-size: 10px; font-weight: 600; color: var(--text-secondary);
@@ -683,15 +694,52 @@ body {
   background: var(--red-light); border: 1px solid var(--red-border); color: var(--red);
   font-size: 13px; font-weight: 600; line-height: 1.7; }
 
-/* تابات الشحنات (لما الأوردر ليه أكتر من شحنة) */
-.dlv-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-.dlv-tab { display: flex; align-items: center; gap: 7px; padding: 7px 14px;
-  border: 1.5px solid var(--border-strong); border-radius: var(--radius-sm);
-  background: var(--surface); font-family: var(--font-mono); direction: ltr;
-  font-size: 12.5px; font-weight: 600; color: var(--text-secondary); cursor: pointer; transition: all .15s; }
-.dlv-tab:hover  { border-color: var(--accent); color: var(--accent); }
-.dlv-tab.active { border-color: var(--accent); color: var(--accent-dark); background: var(--accent-light); }
-.dlv-tab .dlv-tab-type { font-family: var(--font-body); font-size: 10.5px; color: var(--text-muted); }
+/* شريط الأوردر (رابط شوبيفاي + S1/S2) */
+.order-strip { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 14px 18px; margin-bottom: 14px; }
+.order-strip .os-lbl { font-size: 10px; font-weight: 700; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 2px; }
+.order-link, .order-num { font-family: var(--font-mono); direction: ltr; display: inline-block;
+  font-size: 26px; font-weight: 800; color: var(--accent-dark); text-decoration: none; }
+.order-link:hover { text-decoration: underline; }
+.order-link::after { content: ' ↗'; font-size: 15px; }
+.os-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-inline-start: auto; }
+.os-chip { display: flex; flex-direction: column; gap: 2px; padding: 6px 14px; min-width: 130px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-2); }
+.os-chip b { font-size: 10px; letter-spacing: .5px; color: var(--text-secondary); }
+.os-chip span { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+.os-chip.empty span { color: var(--text-muted); font-weight: 400; }
+.os-note { font-size: 12px; color: var(--amber-dark); font-weight: 600; }
+
+/* اختيار الشحنة — كروت واضحة لما الأوردر فيه أكتر من شحنة */
+.dlv-picker-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  font-size: 12.5px; font-weight: 700; color: var(--amber-dark); }
+.dlv-picker-hdr .cnt { background: var(--amber); color: #fff; border-radius: 20px; padding: 1px 10px; font-size: 12px; }
+.dlv-tabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.dlv-tab { display: flex; flex-direction: column; gap: 5px; padding: 11px 14px; text-align: start;
+  border: 2px solid var(--border-strong); border-radius: var(--radius); background: var(--surface);
+  cursor: pointer; transition: all .15s; position: relative; }
+.dlv-tab:hover  { border-color: var(--accent); }
+.dlv-tab.active { border-color: var(--accent); background: var(--accent-light); box-shadow: 0 0 0 3px rgba(37,99,235,.14); }
+.dlv-tab.active::before { content: '✓ معروضة'; position: absolute; top: -9px; inset-inline-end: 12px;
+  background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 9px; border-radius: 10px; }
+.dlv-tab .t-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.dlv-tab .t-idx  { font-size: 10.5px; font-weight: 700; color: var(--text-secondary); }
+.dlv-tab .t-type { font-size: 11px; font-weight: 800; padding: 1px 9px; border-radius: 10px;
+  background: var(--purple-light); color: var(--purple-dark); border: 1px solid var(--purple-border); }
+.dlv-tab .t-tn   { font-family: var(--font-mono); direction: ltr; text-align: start; font-size: 16px; font-weight: 800; color: var(--text-primary); }
+.dlv-tab .t-state { font-size: 11px; font-weight: 700; align-self: flex-start; padding: 2px 10px; border-radius: 20px; }
+
+/* الكارت كله بلون الحالة: مرتجع (46) أحمر · Delivered (45) أخضر */
+.dlv-card.card-red   { background: var(--red-light);   border-color: var(--red-border); }
+.dlv-card.card-green { background: var(--green-light); border-color: var(--green-border); }
+.dlv-card.card-red   .dlv-card-hdr { background: rgba(220,38,38,.09);  border-bottom-color: var(--red-border); }
+.dlv-card.card-green .dlv-card-hdr { background: rgba(22,163,74,.09);  border-bottom-color: var(--green-border); }
+.dlv-card.card-red   .raw-toggle { border-top-color: var(--red-border); }
+.dlv-card.card-green .raw-toggle { border-top-color: var(--green-border); }
+.dlv-upd { margin-inline-start: auto; display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+.dlv-upd .field-label { font-size: 10px; }
 
 .sec-label { font-size: 10.5px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
   color: var(--text-secondary); margin: 0 0 8px 0; }
@@ -846,6 +894,20 @@ body {
           <span class="cl-ver-date">30-09-2026</span>
         </div>
         <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>رقم الأوردر بشكل مميّز ولينك مباشر لصفحته على شوبيفاي + عرض ميتافيلدز S1 / S2</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>كارت الشحنة كله أحمر لـ Returned to business (46) وأخضر لـ Delivered (45)</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>مربعا البحث جنب بعض ومربع رقم التتبع أحمر</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>كروت اختيار الشحنة أوضح لما الأوردر فيه أكتر من شحنة</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>آخر تحديث بقى جنب رقم التتبع وحالة الشحنة</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>«Exception / NDR» بقت «سجلات محاولات التسليم الفاشلة» + اتشالت رسالة «تم جلب …»</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row">
+          <span class="cl-ver-badge old">v3.0.0</span>
+          <span class="cl-ver-date">30-09-2026</span>
+        </div>
+        <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>مربع بحث تاني برقم التتبع (Tracking Number)</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>رقم التتبع بقى لينك مباشر لصفحة الشحنة على بوسطة</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>ظهور وضوح العنوان (addressClarityScore · isAddressClear · isBadAddress) ووقت الاستلام</span></li>
@@ -972,21 +1034,23 @@ body {
 <!-- ─── §TOOL::searchTab ─── -->
 <div id="searchTabContent">
   <div class="search-card">
-    <div class="search-row">
-      <div class="search-g">
+    <div class="search-pair">
+      <div class="search-col">
         <span class="search-lbl">رقم الأوردر (Business Reference)</span>
-        <input type="text" class="order-input" id="orderInput" inputmode="numeric"
-               oninput="toggleSearchActiveState(this)" />
+        <div class="search-inline">
+          <input type="text" class="order-input" id="orderInput" inputmode="numeric"
+                 oninput="toggleSearchActiveState(this)" />
+          <button class="btn-search" id="searchBtn" onclick="doLookup('order')">بحث</button>
+        </div>
       </div>
-      <button class="btn-search" id="searchBtn" onclick="doLookup('order')">بحث</button>
-    </div>
-    <div class="search-row" style="margin-top:12px;">
-      <div class="search-g">
+      <div class="search-col tn">
         <span class="search-lbl">رقم التتبع (Tracking Number)</span>
-        <input type="text" class="order-input" id="trackingInput" inputmode="numeric"
-               oninput="toggleSearchActiveState(this)" />
+        <div class="search-inline">
+          <input type="text" class="order-input" id="trackingInput" inputmode="numeric"
+                 oninput="toggleSearchActiveState(this)" />
+          <button class="btn-search" id="searchTrackingBtn" onclick="doLookup('tracking')">بحث</button>
+        </div>
       </div>
-      <button class="btn-search" id="searchTrackingBtn" onclick="doLookup('tracking')">بحث</button>
     </div>
     <div class="search-status" id="searchStatus"></div>
   </div>
@@ -1373,12 +1437,12 @@ async function apiGet(action, params = {}) {
 // ══════════════════════════════════════════════════════════════
 // §SHELL-JS — الإعدادات · النسخة · التوست · حارس نسخة الـ Worker
 // ══════════════════════════════════════════════════════════════
-const TOOL_VERSION = 'v3.0.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
+const TOOL_VERSION = 'v3.1.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
 
 // أقل نسخة Worker الواجهة دي بتشتغل معاها. الواجهة بتبعت `tracking=` في lookup
-// وبتقرا addressClarityScore/exceptions[] — اتضافوا في Worker 3.0.0.
+// وبتقرا addressClarityScore/exceptions[] (3.0.0) وبيقرا `shopify` (S1/S2) — اتضاف في Worker 3.1.0.
 // **مالهاش أي علاقة بـ TOOL_VERSION.**
-const MIN_WORKER_VERSION = '3.0.0';
+const MIN_WORKER_VERSION = '3.1.0';
 
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
@@ -1842,7 +1906,7 @@ async function doLogout() {
 
   // ── CUSTOMIZE ──────────────────────────────────────────────
   document.getElementById('activeUserBtn').textContent = '👤 —';
-  allDeliveries = []; activeIdx = 0; currentOrderNumber = '';
+  allDeliveries = []; activeIdx = 0; currentOrderNumber = ''; currentShopify = null;
   document.getElementById('results').innerHTML = '';
   document.getElementById('queryErrorBanner').innerHTML = '';
   document.getElementById('orderInput').value = '';
@@ -1876,6 +1940,7 @@ function updateLoginSettingsBtn() {
 let allDeliveries      = [];
 let activeIdx          = 0;
 let currentOrderNumber = '';
+let currentShopify     = null;   // { ok, found, orderId, s1, s2 } | null
 let isLookupBusy       = false;
 
 // ─── §TOOL-JS::tabs ───
@@ -1914,6 +1979,7 @@ async function doLookup(mode = 'order') {
     const data = await apiGet('lookup', isTn ? { tracking: q } : { order: q });
     allDeliveries      = data.deliveries || [];
     currentOrderNumber = data.orderNumber || (isTn ? '' : `#${q.replace(/^#/, '')}`);
+    currentShopify     = data.shopify || null;
     activeIdx          = 0;
 
     if (!allDeliveries.length) {
@@ -1925,9 +1991,7 @@ async function doLookup(mode = 'order') {
       return;
     }
     renderResults();
-    setSearchStatus(isTn
-      ? `تم جلب الشحنة ${q}${currentOrderNumber ? ` (الأوردر ${currentOrderNumber})` : ''}`
-      : `تم جلب ${allDeliveries.length.toLocaleString('en-US')} شحنة للأوردر ${currentOrderNumber}`, 'success');
+    setSearchStatus('');
     playBeep('success');
   } catch (err) {
     // بانر أحمر فوق النتايج — "تعذّر الاستعلام" لازم تتميّز عن "غير موجود"
@@ -1977,29 +2041,46 @@ function renderResults() {
   if (!d) { document.getElementById('results').innerHTML = ''; return; }
 
   const tabsHtml = allDeliveries.length > 1
-    ? `<div class="dlv-tabs">${allDeliveries.map((x, i) =>
+    ? `<div class="dlv-picker-hdr">📦 الأوردر ده فيه <span class="cnt">${allDeliveries.length}</span> شحنات — اختار الشحنة اللي عايز تشوفها</div>`
+      + `<div class="dlv-tabs">${allDeliveries.map((x, i) =>
         `<button class="dlv-tab${i === activeIdx ? ' active' : ''}" onclick="switchDelivery(${i})">`
-        + `${esc(x.trackingNumber || '—')}`
-        + `<span class="dlv-tab-type">${esc(x.type || '')}</span></button>`
+        + `<span class="t-top"><span class="t-idx">شحنة ${i + 1} من ${allDeliveries.length}</span>`
+        + `<span class="t-type">${esc(x.type || '—')}</span></span>`
+        + `<span class="t-tn">${esc(x.trackingNumber || '—')}</span>`
+        + `<span class="t-state ${stateClass(x.stateLabel)}">${esc(x.stateLabel)}${x.stateCode != null ? ` (${esc(x.stateCode)})` : ''}</span>`
+        + `</button>`
       ).join('')}</div>`
     : '';
 
   const stateTxt = `${d.stateLabel}${d.stateCode != null ? ` (${d.stateCode})` : ''}`;
-  // Exception / NDR — الأحدث فوق (بوسطة بترجّعهم من الأقدم للأحدث)
+  // لون الكارت كله: مرتجع للتاجر (46) أحمر · Delivered (45) أخضر
+  const cardTone = d.stateCode === 46 ? ' card-red' : (d.stateCode === 45 ? ' card-green' : '');
+  // سجلات محاولات التسليم الفاشلة — الأحدث فوق (بوسطة بترجّعهم من الأقدم للأحدث)
   const excs = Array.isArray(d.exceptions) ? d.exceptions.slice().reverse() : [];
   const excHtml = excs.length
-    ? `<div class="exception-box"><strong>Exception / NDR${excs.length > 1 ? ` (${excs.length})` : ''}</strong>`
+    ? `<div class="exception-box"><strong>سجلات محاولات التسليم الفاشلة${excs.length > 1 ? ` (${excs.length})` : ''}</strong>`
       + excs.map(x => `<div class="exc-item">${esc(x.reason || '—')}${x.code != null ? ` (${esc(x.code)})` : ''}`
         + `<div class="exc-meta">${[x.userName, x.userPhone, x.time ? formatDateTime(x.time) : null]
             .filter(Boolean).map(esc).join(' · ')}</div></div>`).join('')
       + `</div>`
     : '';
+  // شريط الأوردر: رقم مميّز + لينك شوبيفاي + S1/S2
+  const sh = currentShopify;
+  const chip = (lbl, v) => `<div class="os-chip${v ? '' : ' empty'}"><b>${lbl}</b><span>${v ? esc(v) : '—'}</span></div>`;
+  const orderStrip = currentOrderNumber ? `
+    <div class="order-strip">
+      <div><span class="os-lbl">الأوردر</span>${orderLink(currentOrderNumber, sh && sh.found ? sh.orderId : '')}</div>
+      ${sh && sh.ok && sh.found ? `<div class="os-chips">${chip('S1 · حالة الأوردر', sh.s1)}${chip('S2 · مرتجع/استبدال', sh.s2)}</div>` : ''}
+      ${sh && sh.ok && !sh.found ? '<span class="os-note">⚠️ الأوردر مش ظاهر على شوبيفاي (أو أقدم من ٦٠ يوم)</span>' : ''}
+      ${sh && !sh.ok ? `<span class="os-note">⚠️ تعذّر جلب S1/S2 من شوبيفاي — ${esc(sh.error)}</span>` : ''}
+    </div>` : '';
   const yn = v => (v === null || v === undefined) ? null : (v ? 'نعم' : 'لا');
 
   document.getElementById('results').innerHTML = `
+    ${orderStrip}
     ${tabsHtml}
     <div class="sec-label">بيانات الشحنة</div>
-    <div class="dlv-card">
+    <div class="dlv-card${cardTone}">
       <div class="dlv-card-hdr">
         <span class="dlv-card-ttl">Delivery Info</span>
         <span class="dlv-card-ref">${d.businessReference ? `Ref: ${esc(d.businessReference)}` : ''}</span>
@@ -2011,13 +2092,13 @@ function renderResults() {
             : '—'}</span>
           <span class="state-badge ${stateClass(d.stateLabel)}">${esc(stateTxt)}</span>
           ${d.maskedState ? `<span style="font-size:12px;color:var(--text-secondary)">${esc(d.maskedState)}</span>` : ''}
+          <div class="dlv-upd"><span class="field-label">آخر تحديث</span>${fieldVal(d.updatedAt ? formatDateTime(d.updatedAt) : null)}</div>
         </div>
         <div class="fields-grid">${fieldsGrid({
           'النوع':          d.type,
           'COD':            d.cod != null ? `${Number(d.cod).toLocaleString('en-US')} EGP` : null,
           'عدد المحاولات':  d.attempts,
           'أُنشئت':         d.createdAt   ? formatDateTime(d.createdAt)   : null,
-          'آخر تحديث':      d.updatedAt   ? formatDateTime(d.updatedAt)   : null,
           'مجدولة':         d.scheduledAt ? formatDateTime(d.scheduledAt) : null,
           'وعد التسليم':    d.promiseDate,
           'ملاحظات':        d.notes,

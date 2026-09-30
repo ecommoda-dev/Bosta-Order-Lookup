@@ -3,6 +3,11 @@
 // Worker: bosta-order-lookup-worker — EcomModa
 // skills: worker-builder v3.7.0 · html-builder v7.0.0 · bosta-api-helper v1.1.0 · constants v3.1.0 · shopify-graphql-helper v2.1.0 — 24-09-2026
 //
+// WORKER_VERSION 3.1.0 — رجوع شوبيفاي **للقراءة فقط**: `lookup` بيرجّع كمان `shopify`
+// = { orderId, orderName, s1, s2 } (ميتافيلدز custom.manual_status / custom.status_2_r_e).
+// فشل شوبيفاي مابيفشّلش البحث — بيرجع `shopify.ok=false` + سبب. مفيش أي كتابة.
+// محتاج تاني: SHOP_DOMAIN (var) · CLIENT_ID · CLIENT_SECRET (Secrets) + Promote.
+//
 // WORKER_VERSION 3.0.0 — (كاسر) شيل المزامنة على شوبيفاي بالكامل (`action=sync`
 // + كل كود شوبيفاي) — الأداة بقت قراءة من بوسطة بس. `lookup` بقى يقبل
 // `tracking=` جنب `order=`، والشحنة بترجّع addressClarityScore/isAddressClear/
@@ -29,7 +34,8 @@
 //   + §AUTH (٦ endpoints) · §LOG-ENDPOINTS (٣) · diag · get_config
 //
 // Secrets (Dashboard → Settings → Variables → Secret → ثم Promote):
-//   WORKER_SECRET · BOSTA_API_KEY
+//   WORKER_SECRET · BOSTA_API_KEY · CLIENT_ID · CLIENT_SECRET
+// Vars: SHOP_DOMAIN
 // Bindings:
 //   DB → D1 (ecommoda-dev-logs)
 // ══════════════════════════════════════════════════════════════
@@ -37,7 +43,7 @@
 // ══════════════════════════════════════════════════════════════
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
-const WORKER_VERSION = '3.0.0';
+const WORKER_VERSION = '3.1.0';
 
 // قيمة `tool` في جدول logs — ecommoda-constants §7
 const TOOL_NAME = 'bosta_lookup';
@@ -50,6 +56,8 @@ function resolveAuthTool(appId) { return AUTH_APPS.has(appId) ? appId : TOOL_NAM
 // Bosta — EcomModa عندها **حساب واحد** (constants §3 · bosta-api-helper Step 0a).
 // ممنوع أي مفتاح بلاحقة 1ry/2ry هنا — ده بتاع Khiam Store.
 const BOSTA_API_BASE = 'https://app.bosta.co/api/v2';
+const SHOPIFY_API_VERSION = '2026-01';   // صريح دايمًا، أبدًا "latest"
+
 
 // ══════════════════════════════════════════════════════════════
 // §CORS — Option B (أداة بتكتب على شوبيفاي → قائمة مصادر صارمة)
@@ -96,6 +104,7 @@ function cairoDate() { const p = cairoParts(new Date()); return `${p.year}-${p.m
 // متغير ناقص لازم يوقف العملية برسالة **باسمه** — مش رسالة غامضة مالهاش علاقة بالسبب.
 const ENV_REQUIRED = {
   bosta:   ['BOSTA_API_KEY'],
+  shopify: ['SHOP_DOMAIN', 'CLIENT_ID', 'CLIENT_SECRET'],
 };
 
 function assertEnv(env, ...groups) {
@@ -505,6 +514,86 @@ function shapeDelivery(d) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// §SHOPIFY — قراءة فقط (ميتافيلدز S1/S2 + رقم الأوردر الداخلي للرابط)
+// ══════════════════════════════════════════════════════════════
+async function getAccessToken(env) {
+  const resp = await fetch(`https://${env.SHOP_DOMAIN}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: env.CLIENT_ID, client_secret: env.CLIENT_SECRET, grant_type: 'client_credentials',
+    }),
+  });
+  if (!resp.ok) throw new Error(`OAuth failed: ${resp.status}`);
+  const data = await resp.json();
+  if (!data.access_token) throw new Error('No access_token in response');
+  return data.access_token;
+}
+
+// أي فشل بيترمي: شبكة · HTTP · مش JSON · data.errors · data فاضية.
+async function shopifyGQL(env, token, query, variables = {}, opName = 'shopify') {
+  let resp, text;
+  try {
+    resp = await fetch(`https://${env.SHOP_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+      body:    JSON.stringify({ query, variables }),
+    });
+    text = await resp.text();
+  } catch (e) {
+    throw new Error(`${opName}: فشل الاتصال بشوبيفاي — ${e.message}`);
+  }
+  if (!resp.ok) throw new Error(`${opName}: شوبيفاي ردّت HTTP ${resp.status} — ${text.slice(0, 180)}`);
+  let data;
+  try { data = JSON.parse(text); }
+  catch { throw new Error(`${opName}: رد شوبيفاي مش JSON صالح — ${text.slice(0, 180)}`); }
+  if (Array.isArray(data.errors) && data.errors.length)
+    throw new Error(`${opName}: ${data.errors.map(e => e.message).join(' | ')}`);
+  if (!data.data) throw new Error(`${opName}: رد شوبيفاي بدون data — ${text.slice(0, 180)}`);
+  return data;
+}
+
+// 🔴 البحث بالاسم **بحث، مش lookup** — تطابق حرفي على الاسم قبل ما نثق في النتيجة.
+// S1 = custom.manual_status · S2 = custom.status_2_r_e (ecommoda-order-lifecycle)
+// ⚠️ بدون read_all_orders الأوردرات الأقدم من ٦٠ يوم مابتظهرش → found:false.
+async function shopifyOrderInfo(env, orderNumber) {
+  const wanted = `#${String(orderNumber).replace(/^#/, '').trim()}`;
+  const token  = await getAccessToken(env);
+  const query = `
+    query findOrder($q: String!) {
+      orders(first: 5, query: $q) {
+        nodes {
+          id legacyResourceId name
+          s1: metafield(namespace: "custom", key: "manual_status")  { value }
+          s2: metafield(namespace: "custom", key: "status_2_r_e")   { value }
+        }
+      }
+    }`;
+  const data  = await shopifyGQL(env, token, query, { q: `name:${wanted}` }, 'findOrder');
+  const exact = (data.data?.orders?.nodes || []).filter(n => n.name === wanted);
+  if (exact.length !== 1) return { ok: true, found: false, orderName: wanted };
+  const n = exact[0];
+  return {
+    ok: true, found: true,
+    orderId:   n.legacyResourceId ?? null,
+    orderName: n.name,
+    s1: n.s1?.value ?? null,
+    s2: n.s2?.value ?? null,
+  };
+}
+
+// فشل شوبيفاي ماينفعش يوقّع بحث بوسطة اللي نجح.
+async function safeShopifyInfo(env, orderNumber) {
+  if (!orderNumber) return { ok: true, found: false, orderName: null };
+  try {
+    assertEnv(env, 'shopify');
+    return await shopifyOrderInfo(env, orderNumber);
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // §HANDLER
 // ══════════════════════════════════════════════════════════════
 export default {
@@ -606,9 +695,11 @@ export default {
           if (!/^\d+$/.test(tracking))
             return json({ ok: false, error: 'رقم التتبع لازم يكون أرقام بس' }, 400, request);
           const deliveries = await searchByTracking(env, tracking);
+          const ref = deliveries[0]?.businessReference ?? null;
           return json({
             ok: true, by: 'tracking', query: tracking,
-            orderNumber: deliveries[0]?.businessReference ?? null,
+            orderNumber: ref,
+            shopify:     await safeShopifyInfo(env, ref),
             count:       deliveries.length,
             deliveries:  deliveries.map(shapeDelivery),
           }, 200, request);
@@ -619,9 +710,11 @@ export default {
           return json({ ok: false, error: 'رقم الأوردر أو رقم التتبع مطلوب' }, 400, request);
 
         const deliveries = await searchByReference(env, order);
+        const orderNumber = `#${String(order).replace(/^#/, '').trim()}`;
         return json({
           ok: true, by: 'order',
-          orderNumber: `#${String(order).replace(/^#/, '').trim()}`,
+          orderNumber,
+          shopify:     deliveries.length ? await safeShopifyInfo(env, orderNumber) : null,
           count:       deliveries.length,
           deliveries:  deliveries.map(shapeDelivery),
         }, 200, request);
@@ -670,7 +763,7 @@ export default {
         const checks = [];
 
         // ① المتغيرات — الأسماء والأطوال بس (بيكشف المسافة المخفية في الاسم)
-        const envKeys = ['WORKER_SECRET', 'BOSTA_API_KEY'];
+        const envKeys = ['WORKER_SECRET', 'BOSTA_API_KEY', 'CLIENT_ID', 'CLIENT_SECRET', 'SHOP_DOMAIN'];
         for (const k of envKeys) {
           const v = env[k];
           const present = typeof v === 'string' && v.trim().length > 0;
@@ -696,6 +789,15 @@ export default {
           checks.push({ ok: true, label: 'بوسطة API', detail: 'المفتاح مقبول والبحث اشتغل' });
         } catch (e) {
           checks.push({ ok: false, label: 'بوسطة API', detail: `فشل: ${e.message}` });
+        }
+
+        // ③-ب شوبيفاي — OAuth بس (قراءة)
+        try {
+          assertEnv(env, 'shopify');
+          await getAccessToken(env);
+          checks.push({ ok: true, label: 'شوبيفاي OAuth', detail: 'التوكن اتجاب بنجاح' });
+        } catch (e) {
+          checks.push({ ok: false, label: 'شوبيفاي OAuth', detail: `فشل: ${e.message}` });
         }
 
         // ④ الـ Origin

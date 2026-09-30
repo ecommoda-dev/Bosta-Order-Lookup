@@ -15,9 +15,13 @@ binding       = "DB"
 database_name = "ecommoda-dev-logs"
 database_id   = "90db62d3-bd7e-4d92-912b-10fc78eeb565"
 
+# ─── Vars (نص عادي — مش أسرار) ────────────────────────
+[vars]
+SHOP_DOMAIN = "6c7e1a-53.myshopify.com"
+
 # ⚠️ الأسرار مبتتكتبش هنا أبدًا.
 #    Worker → Settings → Variables and Secrets → علّم Secret:
-#    WORKER_SECRET · BOSTA_API_KEY
+#    WORKER_SECRET · BOSTA_API_KEY · CLIENT_ID · CLIENT_SECRET
 #    وبعدها: Deployments → Version History → ⋯ → Promote version
 #
-# v3.0.0: اتشالت SHOP_DOMAIN و CLIENT_ID و CLIENT_SECRET — مفيش تعامل مع شوبيفاي.
+# v3.1.0: رجعت SHOP_DOMAIN و CLIENT_ID و CLIENT_SECRET — قراءة فقط من شوبيفاي (S1/S2).
