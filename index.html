@@ -732,33 +732,17 @@ body {
 .exception-box strong { display: block; margin-bottom: 3px; font-size: 11px;
   letter-spacing: .5px; text-transform: uppercase; }
 
-/* شريط المزامنة + عرض النتيجة بأربع حالات (Step 3C) */
-.sync-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 14px 16px; border-top: 1px solid var(--border); }
-.btn-sync { height: 38px; padding: 0 20px; border: none; border-radius: var(--radius-sm);
-  background: var(--green); color: var(--on-accent); font-family: var(--font-body);
-  font-size: 13px; font-weight: 700; cursor: pointer; transition: background .15s; white-space: nowrap; }
-.btn-sync:hover:not(:disabled) { background: var(--green-dark); }
-.btn-sync:disabled { opacity: .5; cursor: not-allowed; }
-.sync-hint { font-size: 12px; color: var(--text-secondary); flex: 1; min-width: 160px; line-height: 1.6; }
+.dlv-tn-link { color: var(--accent-dark); text-decoration: none; }
+.dlv-tn-link:hover { text-decoration: underline; }
+.exc-item { padding: 6px 0; border-top: 1px dashed var(--amber-border); }
+.exc-item:first-of-type { border-top: none; }
+.exc-meta { font-size: 11.5px; color: var(--amber-dark); opacity: .85; direction: ltr; text-align: right; }
 
-.sync-result { padding: 0 16px 16px; }
-.sync-result:empty { display: none; }
-.res-box { border-radius: var(--radius-sm); padding: 12px 15px; border: 1px solid var(--border);
-  background: var(--surface-2); }
-.res-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-.res-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
 .badge-success { background: var(--green-light);  color: var(--green-dark);  border: 1px solid var(--green-border); }
 .badge-warn    { background: var(--amber-light);  color: var(--amber-dark);  border: 1px solid var(--amber-border); }
 .badge-danger  { background: var(--red-light);    color: var(--red-dark);    border: 1px solid var(--red-border); }
 /* `rejected` و`already` محايدين — ممنوع أحمر وممنوع أصفر (constants §12) */
 .badge-neutral { background: var(--surface-2);    color: var(--text-mid);    border: 1px solid var(--border-strong); }
-.res-msg   { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.7; }
-.res-line  { font-size: 12.5px; color: var(--text-mid); line-height: 1.8; margin-top: 6px; }
-.res-line b { color: var(--text-primary); }
-.res-warn  { font-size: 12.5px; color: var(--amber-dark); line-height: 1.8; margin-top: 6px; }
-.res-nolog { margin-top: 8px; padding: 7px 11px; border-radius: 6px; background: var(--amber-light);
-  border: 1px solid var(--amber-border); color: var(--amber-dark); font-size: 12px; font-weight: 700; }
 
 /* Raw payload */
 .raw-toggle { display: flex; align-items: center; gap: 8px; padding: 12px 16px;
@@ -809,7 +793,7 @@ body {
     <div class="app-icon">📦</div>
     <div class="app-title-text">
       <h1>Bosta Order Lookup</h1>
-      <span>البحث عن شحنة بوسطة برقم الأوردر ومزامنة حالتها على شوبيفاي</span>
+      <span>البحث عن شحنة بوسطة برقم الأوردر أو رقم التتبع</span>
     </div>
   </div>
   <div class="app-header-btns">
@@ -859,6 +843,19 @@ body {
       <div class="cl-version-block">
         <div class="cl-version-row">
           <span class="cl-ver-badge" id="clLatestVerBadge"></span>
+          <span class="cl-ver-date">30-09-2026</span>
+        </div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>مربع بحث تاني برقم التتبع (Tracking Number)</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>رقم التتبع بقى لينك مباشر لصفحة الشحنة على بوسطة</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>ظهور وضوح العنوان (addressClarityScore · isAddressClear · isBadAddress) ووقت الاستلام</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>ظهور سبب الاستثناء (Exception) وكوده ومين سجّله وتوقيته</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>اتشالت «المزامنة على شوبيفاي» بالكامل — الأداة بقت قراءة من بوسطة فقط</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row">
+          <span class="cl-ver-badge old">v2.0.0</span>
           <span class="cl-ver-date">12-09-2026</span>
         </div>
         <ul class="cl-items">
@@ -900,8 +897,8 @@ body {
       <details class="about-sec" open>
         <summary>📋 وصف الأداة</summary>
         <div class="about-sec-body">
-          <p><strong>الهدف:</strong> البحث عن شحنة بوسطة برقم الأوردر (Business Reference)، عرض
-             حالتها وبيانات المستلم، ومزامنة ٤ ميتافيلدز على أوردر شوبيفاي المقابل.</p>
+          <p><strong>الهدف:</strong> البحث عن شحنة بوسطة برقم الأوردر (Business Reference) أو برقم التتبع، عرض
+             حالتها وبيانات المستلم ووضوح العنوان وسبب الاستثناء.</p>
           <p><strong>المستخدمون المستهدفون:</strong> المخزن وخدمة العملاء.</p>
 
           <h4>كيف تعمل — Workflow</h4>
@@ -910,37 +907,16 @@ body {
             <li>يكتب رقم الأوردر (بـ «#» أو من غيرها — الأداة بتضيفها) ويضغط بحث.</li>
             <li>الـ Worker بيسأل بوسطة بـ <code>businessReference: '#رقم'</code> ويرجّع كل الشحنات المرتبطة.</li>
             <li>لو فيه أكتر من شحنة، بتظهر تابات بأرقام التتبع — الموظف يختار الشحنة.</li>
-            <li>ضغطة «مزامنة على شوبيفاي» بتبعت <b>رقم التتبع</b> بس — والـ Worker بيقرا الشحنة
-                من بوسطة من جديد، يتأكد من اسم الأوردر على شوبيفاي بتطابق حرفي، وبعدها بس يكتب.</li>
-            <li>النتيجة بتظهر بأربع حالات، وبتتسجّل في تاب «سجل العمليات».</li>
+            <li>أو يكتب رقم التتبع في المربع التاني — الرقم بيفتح الشحنة على بوسطة.</li>
           </ol>
-
-          <h4>الميتافيلدز اللي بتتكتب</h4>
-          <table>
-            <tr><th>الميتافيلد</th><th>النوع</th><th>المصدر</th></tr>
-            <tr><td><code>custom.bosta_tracking_number</code></td><td>number_integer</td><td><code>trackingNumber</code></td></tr>
-            <tr><td><code>custom.bosta_webhook</code></td><td>single_line_text_field</td><td><code>STATE_MAP[state.code]</code></td></tr>
-            <tr><td><code>custom.bosta_order_type</code></td><td>single_line_text_field</td><td><code>type.value</code></td></tr>
-            <tr><td><code>custom.bosta_number_of_attempts</code></td><td>number_integer</td><td><code>numberOfAttempts</code></td></tr>
-          </table>
 
           <h4>الـ Endpoints الرئيسية</h4>
           <table>
             <tr><th>action</th><th>الوصف</th></tr>
-            <tr><td><code>lookup</code></td><td>بحث في بوسطة بالـ Business Reference</td></tr>
-            <tr><td><code>sync</code></td><td>مزامنة الـ ٤ ميتافيلدز على أوردر شوبيفاي</td></tr>
+            <tr><td><code>lookup</code></td><td>بحث في بوسطة بالـ Business Reference (<code>order</code>) أو رقم التتبع (<code>tracking</code>)</td></tr>
             <tr><td><code>check_employee</code> · <code>register_pin</code> · <code>verify_employee</code> · <code>log_logout</code> · <code>get_employees</code></td><td>Universal D1 Auth</td></tr>
             <tr><td><code>get_logs</code> · <code>get_logs_count</code> · <code>get_logs_export</code></td><td>سجل العمليات + التصدير</td></tr>
             <tr><td><code>diag</code> · <code>get_config</code></td><td>الفحص الذاتي ونسخة الـ Worker</td></tr>
-          </table>
-
-          <h4>⚙️ نتيجة المزامنة — أربع حالات</h4>
-          <table>
-            <tr><th>الحالة</th><th>معناها</th></tr>
-            <tr><td><b>✓ تم</b></td><td>الـ ٤ ميتافيلدز اتكتبوا واتأكدوا من رد شوبيفاي</td></tr>
-            <tr><td><b>⚠ تم جزئيًا</b></td><td>اتكتب جزء — وحقل أو أكتر ما اتكتبش لأن بوسطة مرجّعاهوش أو قيمته مش صالحة</td></tr>
-            <tr><td><b>ℹ️ مرفوض</b></td><td>اتوقفنا <b>قبل</b> أي كتابة (الشحنة مش موجودة · الأوردر مش موجود · مفيش قيمة صالحة)</td></tr>
-            <tr><td><b>✗ فشل</b></td><td>حاولنا والنداء اترفض — السبب معروض كامل</td></tr>
           </table>
         </div>
       </details>
@@ -954,7 +930,6 @@ body {
             <li><code>§SHELL-JS</code> — الإعدادات · النسخة · التوست · حارس نسخة الـ Worker · <code>runDiag()</code></li>
             <li><code>§AUTH-JS</code> — Universal D1 Auth (٤ حالات: employee / existing / new / confirm)</li>
             <li><code>§TOOL-JS::lookup</code> — البحث وعرض الشحنات والتابات</li>
-            <li><code>§TOOL-JS::sync</code> — المزامنة وعرض النتيجة بأربع حالات</li>
             <li><code>§LOG-JS</code> — سجل العمليات: فلاتر multi-select server-side · ترتيب · تصدير XLSX</li>
           </ul>
 
@@ -970,12 +945,10 @@ body {
 
           <h4>NOTES / QUIRKS</h4>
           <ul>
-            <li>الأداة <b>مابتبعتش بيانات الشحنة</b> للـ Worker وقت المزامنة — بتبعت رقم التتبع بس،
-                والـ Worker بيقرا من بوسطة. ده مقصود: العميل مايقدرش يقرر القيم المكتوبة على شوبيفاي.</li>
             <li>الـ Worker بيرفض أي نداء من غير <code>WORKER_SECRET</code>، والـ CORS محصور على
                 <code>ecommoda-dev.github.io</code> — الأداة مش هتشتغل من ملف محلي.</li>
-            <li>لو بوسطة رجّعت أكتر من شحنة لنفس الأوردر (شحنة + مرتجع مثلاً)، التابات بتظهر
-                والمزامنة بتشتغل على <b>الشحنة المعروضة حاليًا بس</b>.</li>
+            <li>لو بوسطة رجّعت أكتر من شحنة لنفس الأوردر (شحنة + مرتجع مثلاً)، التابات بتظهر.</li>
+            <li>صفوف <code>sync</code> القديمة لسه ظاهرة في السجل كأرشيف — الأداة مابقتش تكتبها.</li>
             <li>فلاتر تاريخ السجل بتقارن بالـ <code>timestamp</code> المخزّن (UTC) والعرض بتوقيت
                 القاهرة — فرق الساعتين/التلاتة ممكن يحط عملية بعد ٩ مساءً في يوم UTC اللي بعده.</li>
             <li>حالات بوسطة بتتقرا من <code>STATE_MAP[state.code]</code> — <code>state.value</code>
@@ -1005,7 +978,15 @@ body {
         <input type="text" class="order-input" id="orderInput" inputmode="numeric"
                oninput="toggleSearchActiveState(this)" />
       </div>
-      <button class="btn-search" id="searchBtn" onclick="doLookup()">بحث</button>
+      <button class="btn-search" id="searchBtn" onclick="doLookup('order')">بحث</button>
+    </div>
+    <div class="search-row" style="margin-top:12px;">
+      <div class="search-g">
+        <span class="search-lbl">رقم التتبع (Tracking Number)</span>
+        <input type="text" class="order-input" id="trackingInput" inputmode="numeric"
+               oninput="toggleSearchActiveState(this)" />
+      </div>
+      <button class="btn-search" id="searchTrackingBtn" onclick="doLookup('tracking')">بحث</button>
     </div>
     <div class="search-status" id="searchStatus"></div>
   </div>
@@ -1187,7 +1168,7 @@ body {
     <div class="login-top">
       <div class="login-icon">📦</div>
       <div class="login-title">Bosta Order Lookup</div>
-      <div class="login-desc">البحث عن شحنة بوسطة ومزامنتها على شوبيفاي</div>
+      <div class="login-desc">البحث عن شحنة بوسطة برقم الأوردر أو رقم التتبع</div>
       <div class="login-sub" id="loginSub"></div>
     </div>
 
@@ -1392,12 +1373,12 @@ async function apiGet(action, params = {}) {
 // ══════════════════════════════════════════════════════════════
 // §SHELL-JS — الإعدادات · النسخة · التوست · حارس نسخة الـ Worker
 // ══════════════════════════════════════════════════════════════
-const TOOL_VERSION = 'v2.0.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
+const TOOL_VERSION = 'v3.0.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
 
-// أقل نسخة Worker الواجهة دي بتشتغل معاها. الواجهة بتقرا `status`/`actions`/
-// `warnings`/`orderId` من sync و`cap`/`total`/`truncated` من get_logs_export —
-// كلهم اتضافوا في Worker 2.0.0. **مالهاش أي علاقة بـ TOOL_VERSION.**
-const MIN_WORKER_VERSION = '2.0.0';
+// أقل نسخة Worker الواجهة دي بتشتغل معاها. الواجهة بتبعت `tracking=` في lookup
+// وبتقرا addressClarityScore/exceptions[] — اتضافوا في Worker 3.0.0.
+// **مالهاش أي علاقة بـ TOOL_VERSION.**
+const MIN_WORKER_VERSION = '3.0.0';
 
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
@@ -1866,6 +1847,8 @@ async function doLogout() {
   document.getElementById('queryErrorBanner').innerHTML = '';
   document.getElementById('orderInput').value = '';
   toggleSearchActiveState(document.getElementById('orderInput'));
+  document.getElementById('trackingInput').value = '';
+  toggleSearchActiveState(document.getElementById('trackingInput'));
   setSearchStatus('');
   switchMainTab('search');
   // ──────────────────────────────────────────────────────────
@@ -1894,7 +1877,6 @@ let allDeliveries      = [];
 let activeIdx          = 0;
 let currentOrderNumber = '';
 let isLookupBusy       = false;
-let isSyncBusy         = false;
 
 // ─── §TOOL-JS::tabs ───
 function switchMainTab(tab) {
@@ -1915,31 +1897,37 @@ function setSearchStatus(msg, type = '') {
 }
 
 // ─── §TOOL-JS::lookup ───
-async function doLookup() {
+async function doLookup(mode = 'order') {
   if (isLookupBusy) return;
-  const order = document.getElementById('orderInput').value.trim();
+  const isTn  = mode === 'tracking';
+  const q     = document.getElementById(isTn ? 'trackingInput' : 'orderInput').value.trim();
   document.getElementById('queryErrorBanner').innerHTML = '';
-  if (!order) { setSearchStatus('اكتب رقم الأوردر الأول', 'error'); playBeep('error'); return; }
+  if (!q) { setSearchStatus(isTn ? 'اكتب رقم التتبع الأول' : 'اكتب رقم الأوردر الأول', 'error'); playBeep('error'); return; }
+  if (isTn && !/^\d+$/.test(q)) { setSearchStatus('رقم التتبع أرقام بس', 'error'); playBeep('error'); return; }
 
   isLookupBusy = true;
-  document.getElementById('searchBtn').disabled = true;
+  setSearchButtonsDisabled(true);
   document.getElementById('results').innerHTML = '';
   setSearchStatus('جارٍ البحث في بوسطة...', 'loading');
 
   try {
-    const data = await apiGet('lookup', { order });
+    const data = await apiGet('lookup', isTn ? { tracking: q } : { order: q });
     allDeliveries      = data.deliveries || [];
-    currentOrderNumber = data.orderNumber || `#${order.replace(/^#/, '')}`;
+    currentOrderNumber = data.orderNumber || (isTn ? '' : `#${q.replace(/^#/, '')}`);
     activeIdx          = 0;
 
     if (!allDeliveries.length) {
       // "مفيش شحنة" ≠ "تعذّر الاستعلام" — الفشل بيترمي من الـ Worker وبيتمسك تحت
-      setSearchStatus(`مفيش أي شحنة على بوسطة تحت الأوردر ${currentOrderNumber}`, 'error');
+      setSearchStatus(isTn
+        ? `مفيش أي شحنة على بوسطة برقم التتبع ${q}`
+        : `مفيش أي شحنة على بوسطة تحت الأوردر ${currentOrderNumber}`, 'error');
       playBeep('warn');
       return;
     }
     renderResults();
-    setSearchStatus(`تم جلب ${allDeliveries.length.toLocaleString('en-US')} شحنة للأوردر ${currentOrderNumber}`, 'success');
+    setSearchStatus(isTn
+      ? `تم جلب الشحنة ${q}${currentOrderNumber ? ` (الأوردر ${currentOrderNumber})` : ''}`
+      : `تم جلب ${allDeliveries.length.toLocaleString('en-US')} شحنة للأوردر ${currentOrderNumber}`, 'success');
     playBeep('success');
   } catch (err) {
     // بانر أحمر فوق النتايج — "تعذّر الاستعلام" لازم تتميّز عن "غير موجود"
@@ -1950,8 +1938,13 @@ async function doLookup() {
     playBeep('error');
   } finally {
     isLookupBusy = false;
-    document.getElementById('searchBtn').disabled = false;
+    setSearchButtonsDisabled(false);
   }
+}
+
+function setSearchButtonsDisabled(v) {
+  document.getElementById('searchBtn').disabled         = v;
+  document.getElementById('searchTrackingBtn').disabled = v;
 }
 
 function stateClass(label) {
@@ -1992,10 +1985,16 @@ function renderResults() {
     : '';
 
   const stateTxt = `${d.stateLabel}${d.stateCode != null ? ` (${d.stateCode})` : ''}`;
-  const excHtml  = (d.exceptionReason || d.exceptionCode)
-    ? `<div class="exception-box"><strong>Exception / NDR</strong>${esc(d.exceptionReason || '')}`
-      + `${d.exceptionCode ? ` (${esc(d.exceptionCode)})` : ''}</div>`
+  // Exception / NDR — الأحدث فوق (بوسطة بترجّعهم من الأقدم للأحدث)
+  const excs = Array.isArray(d.exceptions) ? d.exceptions.slice().reverse() : [];
+  const excHtml = excs.length
+    ? `<div class="exception-box"><strong>Exception / NDR${excs.length > 1 ? ` (${excs.length})` : ''}</strong>`
+      + excs.map(x => `<div class="exc-item">${esc(x.reason || '—')}${x.code != null ? ` (${esc(x.code)})` : ''}`
+        + `<div class="exc-meta">${[x.userName, x.userPhone, x.time ? formatDateTime(x.time) : null]
+            .filter(Boolean).map(esc).join(' · ')}</div></div>`).join('')
+      + `</div>`
     : '';
+  const yn = v => (v === null || v === undefined) ? null : (v ? 'نعم' : 'لا');
 
   document.getElementById('results').innerHTML = `
     ${tabsHtml}
@@ -2007,7 +2006,9 @@ function renderResults() {
       </div>
       <div class="dlv-card-body">
         <div class="dlv-hero">
-          <span class="dlv-tn">${esc(d.trackingNumber || '—')}</span>
+          <span class="dlv-tn">${d.trackingNumber
+            ? `<a class="dlv-tn-link" href="https://business.bosta.co/orders/${encodeURIComponent(d.trackingNumber)}" target="_blank" rel="noopener">${esc(d.trackingNumber)}</a>`
+            : '—'}</span>
           <span class="state-badge ${stateClass(d.stateLabel)}">${esc(stateTxt)}</span>
           ${d.maskedState ? `<span style="font-size:12px;color:var(--text-secondary)">${esc(d.maskedState)}</span>` : ''}
         </div>
@@ -2020,16 +2021,10 @@ function renderResults() {
           'مجدولة':         d.scheduledAt ? formatDateTime(d.scheduledAt) : null,
           'وعد التسليم':    d.promiseDate,
           'ملاحظات':        d.notes,
+          'وقت الاستلام':   d.pickedUpTime ? formatDateTime(d.pickedUpTime) : null,
         })}</div>
         ${excHtml}
       </div>
-
-      <div class="sync-bar">
-        <button class="btn-sync" id="syncBtn" onclick="doSync()">⟳ مزامنة على شوبيفاي</button>
-        <span class="sync-hint">بتكتب ٤ ميتافيلدز على الأوردر ${esc(currentOrderNumber)} —
-          الـ Worker بيقرا الشحنة من بوسطة من جديد قبل الكتابة.</span>
-      </div>
-      <div class="sync-result" id="syncResult"></div>
 
       <div class="raw-toggle" id="rawToggle" onclick="toggleRaw()">
         <span class="arrow">▶</span><span>Raw Payload</span>
@@ -2049,6 +2044,9 @@ function renderResults() {
           'المدينة':   d.city,
           'المنطقة':   d.zone,
           'الحي':      d.district,
+          'وضوح العنوان (Score)': d.addressClarityScore,
+          'العنوان واضح؟ (isAddressClear)': yn(d.isAddressClear),
+          'عنوان سيئ؟ (isBadAddress)': yn(d.isBadAddress),
         })}</div>
       </div>
     </div>`;
@@ -2061,41 +2059,7 @@ function toggleRaw() {
   document.getElementById('rawBody').classList.toggle('open');
 }
 
-// ─── §TOOL-JS::sync ───
-// 🔴 بنبعت **رقم التتبع بس** — الـ Worker بيقرا الشحنة من بوسطة من جديد.
-//    النسخة القديمة كانت بتبعت كائن الشحنة كامل من المتصفح، يعني الواجهة
-//    هي اللي بتقرر القيم المكتوبة على شوبيفاي.
-async function doSync() {
-  if (isSyncBusy) return;
-  const d = allDeliveries[activeIdx];
-  if (!d || !currentOrderNumber) return;
-
-  const btn = document.getElementById('syncBtn');
-  const box = document.getElementById('syncResult');
-  isSyncBusy = true;
-  btn.disabled = true;
-  box.innerHTML = `<div class="res-box"><div class="res-head"><span class="loading-spinner"></span>
-    <span class="res-msg">جارٍ المزامنة...</span></div></div>`;
-
-  try {
-    const res = await apiPost('sync', {
-      orderNumber:    currentOrderNumber,
-      trackingNumber: d.trackingNumber,
-      employee:       currentEmployee ? currentEmployee.username : null,
-    });
-    renderSyncResult(res);
-  } catch (err) {
-    // الفشل اللي وصل للنظام الخارجي واترفض — أحمر وسببه كامل
-    renderSyncResult({ status: 'error', message: err.message, actions: [], warnings: [] });
-  } finally {
-    isSyncBusy = false;
-    btn.disabled = false;
-  }
-}
-
-// ⭐ Step 3C — أربع حالات مش اتنين. الحالة جاية من السيرفر **كما هي**،
-//    مش مشتقّة من success ? … : … — وده بالظبط اللي كان بيعرض "✓ تم" على
-//    عمليات ما حصلتش.
+// أربع حالات مش اتنين — الحالة جاية من السيرفر كما هي (للسجل).
 const RESULT_BADGE = {
   success:  { cls: 'badge-success', txt: '✓ تم' },
   warning:  { cls: 'badge-warn',    txt: '⚠ تم جزئيًا' },
@@ -2109,47 +2073,11 @@ const RESULT_LABELS = {
 };
 const resultLabel = (v) => RESULT_LABELS[v] || '—';   // '—' = ما اتحاولش، وبس
 
-function renderSyncResult(res) {
-  const status = res.status || (res.ok ? 'success' : 'error');
-  const b      = RESULT_BADGE[status] || RESULT_BADGE.error;
-  const parts  = [];
-
-  parts.push(`<div class="res-head"><span class="res-badge ${b.cls}">${b.txt}</span>`
-    + `<span class="res-msg">${esc(res.message || '')}</span></div>`);
-
-  // سطر "ما تم فعليًا" — مبني من res.actions، مش من افتراض
-  if (Array.isArray(res.actions) && res.actions.length)
-    parts.push(`<div class="res-line"><b>اللي اتعمل فعليًا:</b> ${esc(res.actions.join(' · '))}</div>`);
-  else if (status !== 'success')
-    parts.push(`<div class="res-line"><b>اللي اتعمل فعليًا:</b> ولا حاجة — مفيش أي كتابة حصلت</div>`);
-
-  if (res.synced && Object.keys(res.synced).length) {
-    parts.push(`<div class="res-line"><b>القيم المكتوبة:</b> `
-      + Object.entries(res.synced).map(([k, v]) => `${esc(k)} = ${esc(v)}`).join(' · ') + `</div>`);
-  }
-  if (res.orderId) {
-    parts.push(`<div class="res-line"><b>الأوردر:</b> ${orderLink(res.orderNumber || currentOrderNumber, res.orderId)}</div>`);
-  }
-  // التحذير كامل — مش مقصوص ومش في title بس
-  if (Array.isArray(res.warnings) && res.warnings.length)
-    parts.push(`<div class="res-warn">⚠ ${res.warnings.map(w => esc(w)).join('<br>⚠ ')}</div>`);
-
-  // العملية حصلت بس ما اتسجلتش
-  if (res.logged === false)
-    parts.push(`<div class="res-nolog">⚠️ العملية تمّت لكن <b>ما اتسجلتش في السجل</b> — بلّغ المسؤول</div>`);
-
-  document.getElementById('syncResult').innerHTML = `<div class="res-box">${parts.join('')}</div>`;
-
-  if (status === 'success')      { playBeep('success'); showToast('تمت المزامنة ✓', 'success'); }
-  else if (status === 'warning') { playBeep('warn');    showToast('تمت جزئيًا — راجع التحذيرات', 'warning', 6000); }
-  else if (status === 'error')   { playBeep('error');   showToast('فشلت المزامنة — السبب معروض تحت', 'error', 6000); }
-  else                           { playBeep('warn');    showToast('ما اتحاولش — راجع الرسالة', 'neutral', 5000); }
-
-  if (logLoaded) fetchLog();   // السجل يفضل مطابق للواقع
-}
-
 document.getElementById('orderInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); doLookup(); }
+  if (e.key === 'Enter') { e.preventDefault(); doLookup('order'); }
+});
+document.getElementById('trackingInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); doLookup('tracking'); }
 });
 
 // ══════════════════════════════════════════════════════════════

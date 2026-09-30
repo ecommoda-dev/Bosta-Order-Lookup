@@ -3,6 +3,12 @@
 // Worker: bosta-order-lookup-worker — EcomModa
 // skills: worker-builder v3.7.0 · html-builder v7.0.0 · bosta-api-helper v1.1.0 · constants v3.1.0 · shopify-graphql-helper v2.1.0 — 24-09-2026
 //
+// WORKER_VERSION 3.0.0 — (كاسر) شيل المزامنة على شوبيفاي بالكامل (`action=sync`
+// + كل كود شوبيفاي) — الأداة بقت قراءة من بوسطة بس. `lookup` بقى يقبل
+// `tracking=` جنب `order=`، والشحنة بترجّع addressClarityScore/isAddressClear/
+// isBadAddress + pickedUpTime + exceptions[]. قيم `sync`/`rejected` فضلت في
+// LOG_REGISTRY عشان الصفوف القديمة في السجل.
+//
 // WORKER_VERSION 2.0.1 — إضافة الحارس الديناميكي لقيم اللوج (الطبقة ٥ ·
 // worker-builder Step 7-ج): writeLog بقى بيعلّم extra._unregistered ويسجّل
 // تنبيه في log_value_alerts لأي (tool,type) مش في LOG_REGISTRY — مفيش رفض
@@ -18,14 +24,12 @@
 //   • STATE_MAP ناقصة ٦ أكواد → حالة غلط بتتكتب على شوبيفاي
 //
 // Endpoints:
-//   GET  ?action=lookup&order=<ref>   → بحث عن شحنة بوسطة بالـ Business Reference
-//   POST ?action=sync                 → مزامنة ٤ ميتافيلدز على أوردر Shopify
+//   GET  ?action=lookup&order=<ref>      → بحث بالـ Business Reference
+//   GET  ?action=lookup&tracking=<tn>    → بحث برقم التتبع
 //   + §AUTH (٦ endpoints) · §LOG-ENDPOINTS (٣) · diag · get_config
 //
 // Secrets (Dashboard → Settings → Variables → Secret → ثم Promote):
-//   WORKER_SECRET · BOSTA_API_KEY · CLIENT_ID · CLIENT_SECRET
-// Vars ([vars] في wrangler.toml):
-//   SHOP_DOMAIN
+//   WORKER_SECRET · BOSTA_API_KEY
 // Bindings:
 //   DB → D1 (ecommoda-dev-logs)
 // ══════════════════════════════════════════════════════════════
@@ -33,7 +37,7 @@
 // ══════════════════════════════════════════════════════════════
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
-const WORKER_VERSION = '2.0.1';
+const WORKER_VERSION = '3.0.0';
 
 // قيمة `tool` في جدول logs — ecommoda-constants §7
 const TOOL_NAME = 'bosta_lookup';
@@ -46,8 +50,6 @@ function resolveAuthTool(appId) { return AUTH_APPS.has(appId) ? appId : TOOL_NAM
 // Bosta — EcomModa عندها **حساب واحد** (constants §3 · bosta-api-helper Step 0a).
 // ممنوع أي مفتاح بلاحقة 1ry/2ry هنا — ده بتاع Khiam Store.
 const BOSTA_API_BASE = 'https://app.bosta.co/api/v2';
-
-const SHOPIFY_API_VERSION = '2026-01';   // صريح دايمًا، أبدًا "latest"
 
 // ══════════════════════════════════════════════════════════════
 // §CORS — Option B (أداة بتكتب على شوبيفاي → قائمة مصادر صارمة)
@@ -91,10 +93,8 @@ function cairoParts(d) {
 function cairoDate() { const p = cairoParts(new Date()); return `${p.year}-${p.month}-${p.day}`; }
 
 // ─── §HELPERS::assertEnv ───
-// متغير ناقص لازم يوقف العملية برسالة **باسمه**. SHOP_DOMAIN الناقص بيدّي
-// "error code: 1003 is not valid JSON" — رسالة مالهاش أي علاقة بالسبب.
+// متغير ناقص لازم يوقف العملية برسالة **باسمه** — مش رسالة غامضة مالهاش علاقة بالسبب.
 const ENV_REQUIRED = {
-  shopify: ['SHOP_DOMAIN', 'CLIENT_ID', 'CLIENT_SECRET'],
   bosta:   ['BOSTA_API_KEY'],
 };
 
@@ -374,135 +374,6 @@ function logParamsFrom(url, tool) {
 // ══════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════
-// §SHOPIFY
-// ══════════════════════════════════════════════════════════════
-async function getAccessToken(env) {
-  const resp = await fetch(
-    `https://${env.SHOP_DOMAIN}/admin/oauth/access_token`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id:     env.CLIENT_ID,
-        client_secret: env.CLIENT_SECRET,
-        grant_type:    'client_credentials',
-      }),
-    }
-  );
-  if (!resp.ok) throw new Error(`OAuth failed: ${resp.status}`);
-  const data = await resp.json();
-  if (!data.access_token) throw new Error('No access_token in response');
-  return data.access_token;
-}
-
-// ─── §SHOPIFY::shopifyGQL — العقد الإلزامي، منسوخة كما هي ───
-// أي فشل بيترمي. مفيش رد بيعدّي وهو فاشل:
-//   ① فشل شبكة  ② HTTP status  ③ رد مش JSON  ④ data.errors  ⑤ data فاضية
-// ⚠️ ④ هو الخطير: لما ميوتيشن تترفض على مستوى الحقل (صلاحية ناقصة مثلاً)
-// شوبيفاي بترد {"errors":[…],"data":null} — والـ userErrors بتبقى [] لأن مفيش
-// payload أصلاً. كود بيفحص userErrors بس بيقرا ده **نجاح**.
-async function shopifyGQL(env, token, query, variables = {}, opName = 'shopify') {
-  const MAX_ATTEMPTS = 3;
-  let lastErr = null;
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    let resp, text;
-    try {
-      resp = await fetch(`https://${env.SHOP_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
-        body:    JSON.stringify({ query, variables }),
-      });
-      text = await resp.text();
-    } catch (e) {
-      lastErr = new Error(`${opName}: فشل الاتصال بشوبيفاي — ${e.message}`);
-      if (attempt < MAX_ATTEMPTS) { await new Promise(r => setTimeout(r, 400 * attempt)); continue; }
-      throw lastErr;
-    }
-
-    if (!resp.ok) {
-      const retriable = resp.status === 429 || resp.status >= 500;
-      lastErr = new Error(`${opName}: شوبيفاي ردّت HTTP ${resp.status} — ${text.slice(0, 180)}`);
-      if (retriable && attempt < MAX_ATTEMPTS) { await new Promise(r => setTimeout(r, 700 * attempt)); continue; }
-      throw lastErr;
-    }
-
-    let data;
-    try { data = JSON.parse(text); }
-    catch { throw new Error(`${opName}: رد شوبيفاي مش JSON صالح — ${text.slice(0, 180)}`); }
-
-    if (Array.isArray(data.errors) && data.errors.length) {
-      const codes = data.errors.map(e => e?.extensions?.code).filter(Boolean);
-      lastErr = new Error(
-        `${opName}: ${data.errors.map(e => e.message).join(' | ')}` +
-        (codes.length ? ` [${codes.join(',')}]` : '')
-      );
-      if (codes.includes('THROTTLED') && attempt < MAX_ATTEMPTS) {
-        await new Promise(r => setTimeout(r, 1200 * attempt)); continue;
-      }
-      throw lastErr;
-    }
-
-    if (!data.data) throw new Error(`${opName}: رد شوبيفاي بدون data — ${text.slice(0, 180)}`);
-    return data;
-  }
-  throw lastErr || new Error(`${opName}: فشل غير معروف`);
-}
-
-// ─── §SHOPIFY::findOrderByName ───
-// 🔴 البحث بالاسم **بحث، مش lookup بمفتاح** (shopify-graphql-helper).
-//    `orders(query:"name:#1780")` ممكن ترجّع أوردر تاني — والنسخة القديمة كانت
-//    بتاخد أول نتيجة على طول وتكتب عليها. المقارنة الحرفية تحت إلزامية.
-async function findOrderByName(env, token, orderNumber) {
-  const clean = String(orderNumber).replace(/^#/, '').trim();
-  const wanted = `#${clean}`;
-  const query = `
-    query findOrder($q: String!) {
-      orders(first: 5, query: $q) {
-        nodes { id legacyResourceId name }
-      }
-    }`;
-  const data  = await shopifyGQL(env, token, query, { q: `name:${wanted}` }, 'findOrderByName');
-  const nodes = data.data?.orders?.nodes || [];
-
-  // تطابق حرفي على الاسم — أي نتيجة تانية بترجع من البحث بتتجاهل
-  const exact = nodes.filter(n => n.name === wanted);
-  if (exact.length === 0) return { order: null, candidates: nodes.length };
-  if (exact.length > 1) {
-    // مستحيل نظريًا (الاسم فريد) — لكن لو حصل، الكتابة على واحد منهم تخمين
-    throw new Error(`findOrderByName: أكتر من أوردر بنفس الاسم ${wanted} — متوقفين قبل أي كتابة`);
-  }
-  return { order: exact[0], candidates: nodes.length };
-}
-
-// ─── §SHOPIFY::setMetafields ───
-// كل ميوتيشن بتعدّي تلات فحوصات: ① top-level (جوّه shopifyGQL) ② userErrors
-// ③ تأكيد الـ payload — `userErrors: []` معناها "مفيش اعتراض"، مش "اتنفّذت".
-async function setMetafields(env, token, metafields) {
-  const mutation = `
-    mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
-      metafieldsSet(metafields: $metafields) {
-        metafields { key value }
-        userErrors { field message }
-      }
-    }`;
-  const data   = await shopifyGQL(env, token, mutation, { metafields }, 'metafieldsSet');
-  const result = data.data?.metafieldsSet;
-  const errs   = result?.userErrors || [];
-  if (errs.length) {
-    throw new Error('metafieldsSet: ' + errs.map(e => `${(e.field || []).join('.')}: ${e.message}`).join(' | '));
-  }
-  // ③ الفحص اللي بيتنسى — العدّ من رد شوبيفاي مش من عدد المدخلات
-  const written = result?.metafields || [];
-  if (written.length !== metafields.length) {
-    throw new Error(
-      `metafieldsSet: شوبيفاي أكدت ${written.length} من ${metafields.length} ميتافيلد — العملية مش مكتملة`
-    );
-  }
-  return written;
-}
-
-// ══════════════════════════════════════════════════════════════
 // §BOSTA
 // ══════════════════════════════════════════════════════════════
 
@@ -557,13 +428,23 @@ function extractDeliveries(raw) {
 //    "مفتاح غلط / بوسطة واقعة" لـ "الشحنة غير موجودة"، وهي رسالة كاذبة.
 async function searchByReference(env, orderNumber) {
   const clean = String(orderNumber).replace(/^#/, '').trim();
+  return bostaSearch(env, { businessReference: `#${clean}`, limit: 50, page: 1 });
+}
+
+// ─── §BOSTA::searchByTracking ───
+// `trackingNumbers` مصفوفة نصوص (bosta-api-helper Step 2).
+async function searchByTracking(env, trackingNumber) {
+  return bostaSearch(env, { trackingNumbers: [String(trackingNumber).trim()], limit: 50, page: 1 });
+}
+
+async function bostaSearch(env, body) {
   let resp, text;
   try {
     resp = await fetch(`${BOSTA_API_BASE}/deliveries/search`, {
       method: 'POST',
       // ⚠️ مفتاح خام بدون "Bearer" — ده بوسطة مش شوبيفاي
       headers: { 'Authorization': env.BOSTA_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businessReference: `#${clean}`, limit: 50, page: 1 }),
+      body: JSON.stringify(body),
     });
     text = await resp.text();
   } catch (e) {
@@ -606,6 +487,19 @@ function shapeDelivery(d) {
     city:              d.dropOffAddress?.city?.name ?? null,
     zone:              d.dropOffAddress?.zone?.name ?? null,
     district:          d.dropOffAddress?.district?.name ?? d.dropOffAddress?.district ?? null,
+    addressClarityScore: d.dropOffAddress?.addressClarityScore ?? null,
+    isAddressClear:      d.dropOffAddress?.isAddressClear ?? null,
+    isBadAddress:        d.dropOffAddress?.isBadAddress ?? null,
+    pickedUpTime:        d.state?.pickedUpTime ?? null,
+    exceptions:          Array.isArray(d.state?.exception)
+      ? d.state.exception.map(x => ({
+          reason: x?.reason ?? null,
+          code:   x?.code ?? null,
+          time:   x?.time ?? null,
+          userName:  x?.user?.name?.trim() ?? null,
+          userPhone: x?.user?.phone ?? null,
+        }))
+      : [],
     raw:               d,
   };
 }
@@ -703,179 +597,34 @@ export default {
       // ──────────────────────────────────────────────────────────────
 
       // ─── §LOOKUP ──────────────────────────────────────────────────
-      // GET ?action=lookup&order=<ref>
-      // عقد الترتيب: `deliveries[]` بترتيب بوسطة كما هو — الواجهة بتطابق
-      // **بالـ trackingNumber** (مش بالفهرس)، والمزامنة بتبعت الرقم ده.
+      // GET ?action=lookup&order=<ref>       → بحث بالـ Business Reference
+      // GET ?action=lookup&tracking=<tn>     → بحث برقم التتبع (Tracking Number)
       if (action === 'lookup') {
         assertEnv(env, 'bosta');
+        const tracking = (url.searchParams.get('tracking') || '').trim();
+        if (tracking) {
+          if (!/^\d+$/.test(tracking))
+            return json({ ok: false, error: 'رقم التتبع لازم يكون أرقام بس' }, 400, request);
+          const deliveries = await searchByTracking(env, tracking);
+          return json({
+            ok: true, by: 'tracking', query: tracking,
+            orderNumber: deliveries[0]?.businessReference ?? null,
+            count:       deliveries.length,
+            deliveries:  deliveries.map(shapeDelivery),
+          }, 200, request);
+        }
+
         const order = url.searchParams.get('order');
         if (!order || !String(order).trim())
-          return json({ ok: false, error: 'رقم الأوردر مطلوب' }, 400, request);
+          return json({ ok: false, error: 'رقم الأوردر أو رقم التتبع مطلوب' }, 400, request);
 
         const deliveries = await searchByReference(env, order);
         return json({
-          ok: true,
+          ok: true, by: 'order',
           orderNumber: `#${String(order).replace(/^#/, '').trim()}`,
           count:       deliveries.length,
           deliveries:  deliveries.map(shapeDelivery),
         }, 200, request);
-      }
-      // ──────────────────────────────────────────────────────────────
-
-      // ─── §SYNC ────────────────────────────────────────────────────
-      // POST ?action=sync   body: { orderNumber, trackingNumber, employee }
-      //
-      // 🔴 الشحنة بتتقرا **من بوسطة من جديد هنا** — مش من body العميل.
-      //    النسخة القديمة كانت بتكتب على شوبيفاي أي `delivery` العميل يبعته،
-      //    يعني العميل كان بيقرر القيم المكتوبة بالكامل.
-      //
-      // ترتيب الأفعال (Step 5A ⑩ ①): كل تحقق ممكن يتعمل **قبل** أول كتابة —
-      // الشحنة موجودة؟ الأوردر موجود بتطابق حرفي؟ القيم صالحة؟ — وبعدها بس
-      // الميوتيشن. مفيش فعل لا رجعة فيه هنا أصلاً (الميتافيلدز بتتكتب فوق
-      // بعضها)، بس الترتيب بيمنع كتابة جزئية على أوردر غلط.
-      if (action === 'sync') {
-        if (request.method !== 'POST') return json({ error: 'POST required' }, 405, request);
-        assertEnv(env, 'shopify', 'bosta');
-
-        const body = await request.json().catch(() => ({}));
-        const { orderNumber, trackingNumber, employee } = body;
-        if (!orderNumber || !trackingNumber)
-          return json({ ok: false, error: 'orderNumber و trackingNumber مطلوبان' }, 400, request);
-
-        const cleanName = `#${String(orderNumber).replace(/^#/, '').trim()}`;
-        const actions   = [];          // بتتملي أول بأول — مش بترجع من دالة في الآخر
-        const warnings  = [];
-
-        // ① الشحنة — من بوسطة، مش من العميل
-        const deliveries = await searchByReference(env, orderNumber);
-        const delivery   = deliveries.find(d => String(d.trackingNumber) === String(trackingNumber));
-        if (!delivery) {
-          const res = {
-            ok: true, status: 'rejected', stage: 'lookup',
-            orderNumber: cleanName, orderId: null,
-            message: `رقم التتبع ${trackingNumber} مش موجود على بوسطة تحت الأوردر ${cleanName} — اعمل بحث تاني`,
-            actions: [],
-          };
-          res.logged = await safeLog(env, {
-            type: 'rejected', employee, orderName: cleanName,
-            notes: res.message,
-            extra: { result: 'rejected', stage: 'lookup', trackingNumber },
-          });
-          return json(res, 200, request);
-        }
-
-        // ② الأوردر على شوبيفاي — بتطابق حرفي على الاسم
-        const token = await getAccessToken(env);
-        const { order, candidates } = await findOrderByName(env, token, cleanName);
-        if (!order) {
-          const res = {
-            ok: true, status: 'rejected', stage: 'lookup',
-            orderNumber: cleanName, orderId: null,
-            message: candidates
-              ? `البحث رجّع ${candidates} أوردر بس مفيش واحد اسمه ${cleanName} بالظبط — متوقفين قبل أي كتابة`
-              : `الأوردر ${cleanName} مش موجود على شوبيفاي`,
-            actions: [],
-          };
-          res.logged = await safeLog(env, {
-            type: 'rejected', employee, orderName: cleanName,
-            notes: res.message,
-            extra: { result: 'rejected', stage: 'lookup', trackingNumber },
-          });
-          return json(res, 200, request);
-        }
-
-        // ③ بناء الميتافيلدز — القيمة الفاضية بتتشال، مش بتتبعت
-        //    (`number_integer` بقيمة "" بيرفض الميوتيشن **كلها**، فالأربعة
-        //     بيفشلوا بسبب حقل واحد ناقص من بوسطة)
-        const label    = stateLabel(delivery);
-        const orderType = String(delivery.type?.value ?? delivery.type ?? '').trim();
-        const attempts = delivery.numberOfAttempts ?? delivery.noOfAttempts ?? null;
-        const tn       = String(delivery.trackingNumber ?? '').trim();
-
-        const candidatesMF = [
-          { key: 'bosta_tracking_number',    value: tn,                          type: 'number_integer'         },
-          { key: 'bosta_webhook',            value: label,                       type: 'single_line_text_field' },
-          { key: 'bosta_order_type',         value: orderType,                   type: 'single_line_text_field' },
-          { key: 'bosta_number_of_attempts', value: attempts == null ? '' : String(attempts), type: 'number_integer' },
-        ];
-        const metafields = candidatesMF
-          .filter(m => {
-            if (m.value === '') {
-              warnings.push(`الحقل ${m.key} فاضي في بيانات بوسطة — ما اتكتبش`);
-              return false;
-            }
-            if (m.type === 'number_integer' && !/^\d+$/.test(m.value)) {
-              warnings.push(`الحقل ${m.key} قيمته "${m.value}" مش رقم صحيح — ما اتكتبش`);
-              return false;
-            }
-            return true;
-          })
-          .map(m => ({ ...m, ownerId: order.id, namespace: 'custom' }));
-
-        if (!metafields.length) {
-          const res = {
-            ok: true, status: 'rejected', stage: 'write',
-            orderNumber: cleanName, orderId: order.legacyResourceId,
-            message: 'مفيش أي قيمة صالحة للكتابة من بيانات بوسطة',
-            actions: [], warnings,
-          };
-          res.logged = await safeLog(env, {
-            type: 'rejected', employee, orderName: cleanName, orderId: order.legacyResourceId,
-            notes: res.message,
-            extra: { result: 'rejected', stage: 'write', trackingNumber: tn, warnings },
-          });
-          return json(res, 200, request);
-        }
-
-        // ④ الكتابة
-        // ⚠️ الفشل هنا **وصل لشوبيفاي واترفض** — فلازم يسيب صف `sync` بنتيجة
-        //    `error` (Step 5A ⑭: صف واحد بالظبط لكل عملية، وصفر صفوف ممنوعة).
-        //    من غير الـ catch ده الاستثناء كان بيطلع للـ handler العام ويرجّع
-        //    500 **بلا أي أثر في السجل** — وهي أهم حالة محتاجة أثر.
-        let written;
-        try {
-          written = await setMetafields(env, token, metafields);
-        } catch (e) {
-          const failRes = {
-            ok: true, status: 'error', stage: 'write',
-            orderNumber: cleanName, orderId: order.legacyResourceId,
-            trackingNumber: tn, actions, warnings,
-            message: `الكتابة على شوبيفاي اترفضت — ${e.message}`,
-          };
-          failRes.logged = await safeLog(env, {
-            type: 'sync', employee, orderName: cleanName, orderId: order.legacyResourceId,
-            notes: failRes.message,
-            extra: { result: 'error', stage: 'write', trackingNumber: tn, actions, warnings },
-          });
-          return json(failRes, 200, request);
-        }
-        actions.push(`metafieldsSet×${written.length}`);
-
-        const status = warnings.length ? 'warning' : 'success';
-        const synced = Object.fromEntries(written.map(m => [m.key, m.value]));
-
-        const res = {
-          ok: true,
-          status,                                   // success | warning | error | rejected | already
-          stage: 'write',
-          orderNumber: cleanName,
-          orderId: order.legacyResourceId,          // رقمي — الواجهة بتبني بيه لينك شوبيفاي
-          trackingNumber: tn,
-          stateLabel: label,
-          synced,
-          actions,
-          warnings,
-          message: warnings.length
-            ? `اتكتب ${written.length} من ${candidatesMF.length} ميتافيلد — راجع التحذيرات`
-            : `اتكتبت الـ ${written.length} ميتافيلدز بالكامل`,
-        };
-        res.logged = await safeLog(env, {
-          type: 'sync', employee, orderName: cleanName, orderId: order.legacyResourceId,
-          valueBefore: null, valueAfter: label,
-          notes: res.message,
-          extra: { result: status, stage: 'write', trackingNumber: tn, actions, warnings, synced },
-        });
-        return json(res, 200, request);
       }
       // ──────────────────────────────────────────────────────────────
 
@@ -921,7 +670,7 @@ export default {
         const checks = [];
 
         // ① المتغيرات — الأسماء والأطوال بس (بيكشف المسافة المخفية في الاسم)
-        const envKeys = ['WORKER_SECRET', 'BOSTA_API_KEY', 'CLIENT_ID', 'CLIENT_SECRET', 'SHOP_DOMAIN'];
+        const envKeys = ['WORKER_SECRET', 'BOSTA_API_KEY'];
         for (const k of envKeys) {
           const v = env[k];
           const present = typeof v === 'string' && v.trim().length > 0;
@@ -940,20 +689,7 @@ export default {
           checks.push({ ok: false, label: 'D1 (DB)', detail: `فشل: ${e.message}` });
         }
 
-        // ③ شوبيفاي — OAuth + الصلاحيات
-        try {
-          const token = await getAccessToken(env);
-          const d = await shopifyGQL(env, token,
-            `{ currentAppInstallation { accessScopes { handle } } }`, {}, 'diagScopes');
-          const scopes = (d.data?.currentAppInstallation?.accessScopes || []).map(s => s.handle);
-          checks.push({ ok: true, label: 'شوبيفاي OAuth', detail: 'التوكن اتجاب بنجاح' });
-          checks.push({ ok: scopes.includes('write_orders'), label: 'صلاحية write_orders',
-                        detail: scopes.length ? scopes.join(', ') : 'مفيش صلاحيات راجعة' });
-        } catch (e) {
-          checks.push({ ok: false, label: 'شوبيفاي OAuth', detail: `فشل: ${e.message}` });
-        }
-
-        // ④ بوسطة — نداء حقيقي بمرجع مش موجود: المهم إن المفتاح مقبول
+        // ③ بوسطة — نداء حقيقي بمرجع مش موجود: المهم إن المفتاح مقبول
         try {
           // مرجع بشكل صالح مش موجود — الهدف إن المفتاح يتقبل، مش إن فيه نتيجة
           await searchByReference(env, '0');
@@ -962,7 +698,7 @@ export default {
           checks.push({ ok: false, label: 'بوسطة API', detail: `فشل: ${e.message}` });
         }
 
-        // ⑤ الـ Origin
+        // ④ الـ Origin
         const origin = request.headers.get('Origin') || '(بدون Origin)';
         checks.push({
           ok: ALLOWED_ORIGINS.includes(origin),
@@ -982,16 +718,3 @@ export default {
     }
   },
 };
-
-// ─── §SYNC::safeLog ───
-// فشل D1 لازم يبان — `.catch(() => {})` بيخفي إن العملية حصلت بلا سجل.
-// بترجّع true/false، والواجهة بتحذّر لو false.
-async function safeLog(env, entry) {
-  try {
-    await writeLog(env.DB, { tool: TOOL_NAME, ...entry });
-    return true;
-  } catch (e) {
-    console.error('writeLog failed:', e.message);
-    return false;
-  }
-}
