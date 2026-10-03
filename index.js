@@ -3,6 +3,11 @@
 // Worker: bosta-order-lookup-worker — EcomModa
 // skills: worker-builder v3.7.0 · html-builder v7.0.0 · bosta-api-helper v1.1.0 · constants v3.1.0 · shopify-graphql-helper v2.1.0 — 24-09-2026
 //
+// WORKER_VERSION 3.2.0 — (١) `shapeDelivery` بيرجّع `typeCode` (type.code الرقمي) و`oldType`
+// (النوع الأصلي قبل التحويل لـ Return to Origin — bosta-api-helper Step 2). (٢) endpoint جديد
+// `?action=history&tracking=<tn>`: قراءة فقط من جدول `bosta_webhook_events` في نفس D1
+// (اللي بيكتبه Bosta-Webhook-Status-Receiver) — سجل تحديثات الشحنة. جدول ناقص = 503 صريح مش [].
+//
 // WORKER_VERSION 3.1.0 — رجوع شوبيفاي **للقراءة فقط**: `lookup` بيرجّع كمان `shopify`
 // = { orderId, orderName, s1, s2 } (ميتافيلدز custom.manual_status / custom.status_2_r_e).
 // فشل شوبيفاي مابيفشّلش البحث — بيرجع `shopify.ok=false` + سبب. مفيش أي كتابة.
@@ -31,6 +36,7 @@
 // Endpoints:
 //   GET  ?action=lookup&order=<ref>      → بحث بالـ Business Reference
 //   GET  ?action=lookup&tracking=<tn>    → بحث برقم التتبع
+//   GET  ?action=history&tracking=<tn>   → سجل أحداث الشحنة (من جدول الويبهوك، قراءة فقط)
 //   + §AUTH (٦ endpoints) · §LOG-ENDPOINTS (٣) · diag · get_config
 //
 // Secrets (Dashboard → Settings → Variables → Secret → ثم Promote):
@@ -43,7 +49,7 @@
 // ══════════════════════════════════════════════════════════════
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
-const WORKER_VERSION = '3.1.0';
+const WORKER_VERSION = '3.2.0';
 
 // قيمة `tool` في جدول logs — ecommoda-constants §7
 const TOOL_NAME = 'bosta_lookup';
@@ -479,6 +485,11 @@ function shapeDelivery(d) {
     stateLabel:        stateLabel(d),
     maskedState:       d.maskedState ?? null,
     type:              d.type?.value ?? d.type ?? null,
+    // 🔴 الفلترة/المنطق على الكود الرقمي مش على النص (Step 2). 20 = Return to Origin.
+    typeCode:          d.type?.code ?? null,
+    // النوع الأصلي قبل التحويل لـ 20 — نص مسطّح بحروف كبيرة ("SEND"/"EXCHANGE").
+    // غايب على الشحنات اللي ما اتحوّلتش. type_before احتياطي (طلع مطابق له في العينتين المقاستين).
+    oldType:           d.oldType ?? d.type_before ?? null,
     cod:               d.cod ?? null,
     attempts:          d.numberOfAttempts ?? d.noOfAttempts ?? null,
     createdAt:         d.createdAt ?? null,
@@ -718,6 +729,34 @@ export default {
           count:       deliveries.length,
           deliveries:  deliveries.map(shapeDelivery),
         }, 200, request);
+      }
+      // ──────────────────────────────────────────────────────────────
+
+      // ─── §HISTORY ─────────────────────────────────────────────────
+      // GET ?action=history&tracking=<tn> → أحداث الشحنة من bosta_webhook_events (نفس D1).
+      // قراءة فقط. 🔴 صفر صفوف مش دليل: جدول ناقص = 503 صريح، مش [].
+      // الشحنات الأقدم من تسجيل رابط الويبهوك (20-09-2026) عمرها ما بعتت حدث — الواجهة بتوضّح ده.
+      if (action === 'history') {
+        const tracking = (url.searchParams.get('tracking') || '').trim();
+        if (!/^\d+$/.test(tracking))
+          return json({ ok: false, error: 'رقم التتبع لازم يكون أرقام بس' }, 400, request);
+        if (!env.DB) return json({ ok: false, error: 'DB (D1 binding) غير مضبوط' }, 500, request);
+        try {
+          const { results } = await env.DB.prepare(
+            `SELECT id, state, description, number_of_attempts, bosta_timestamp, received_at, write_status
+               FROM bosta_webhook_events WHERE tracking_number = ?
+              ORDER BY bosta_timestamp DESC, received_at DESC, id DESC LIMIT 500`
+          ).bind(tracking).all();
+          return json({ ok: true, tracking, count: results.length, events: results }, 200, request);
+        } catch (e) {
+          if (/no such table/i.test(e.message)) {
+            return json({
+              ok: false, errorCode: 'events_table_missing',
+              error: 'جدول bosta_webhook_events مش موجود في D1 — سجل التحديثات مش متاح. راجع Bosta-Webhook-Status-Receiver.',
+            }, 503, request);
+          }
+          throw e;
+        }
       }
       // ──────────────────────────────────────────────────────────────
 

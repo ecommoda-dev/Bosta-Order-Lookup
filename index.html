@@ -731,6 +731,26 @@ body {
 .dlv-tab .t-tn   { font-family: var(--font-mono); direction: ltr; text-align: start; font-size: 16px; font-weight: 800; color: var(--text-primary); }
 .dlv-tab .t-state { font-size: 11px; font-weight: 700; align-self: flex-start; padding: 2px 10px; border-radius: 20px; }
 
+/* زرار السجل + Drawer — نفس شكل Bosta-Webhook-Status-Receiver */
+.hist-btn { border:1px solid var(--accent-border); background:var(--accent-light); color:var(--accent-dark); border-radius:var(--radius-sm); padding:5px 12px; font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.hist-btn:hover { background:var(--accent-hover); }
+.drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:9000; opacity:0; pointer-events:none; transition:opacity .2s; }
+.drawer-overlay.open { opacity:1; pointer-events:auto; }
+.drawer { position:fixed; top:0; bottom:0; left:0; width:min(420px,100vw); background:var(--surface); box-shadow:4px 0 24px rgba(0,0,0,.2); z-index:9001; transform:translateX(-100%); transition:transform .25s ease; display:flex; flex-direction:column; }
+.drawer.open { transform:translateX(0); }
+.drawer-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:14px 16px; border-bottom:1px solid var(--border); }
+.drawer-title { font-size:15px; font-weight:700; }
+.drawer-close { border:none; background:none; font-size:20px; cursor:pointer; color:var(--text-secondary); }
+.drawer-body { padding:16px; overflow-y:auto; flex:1; }
+.tl-item { position:relative; padding:0 22px 16px 0; border-right:2px solid var(--border); margin-right:6px; }
+.tl-item::before { content:''; position:absolute; right:-7px; top:3px; width:12px; height:12px; border-radius:50%; background:var(--border-strong); border:2px solid var(--surface); }
+.tl-item.latest::before { background:var(--accent); }
+.tl-item:last-child { border-right-color:transparent; }
+.tl-desc { font-weight:600; font-size:13px; }
+.tl-meta { font-size:12px; color:var(--text-secondary); margin-top:2px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.hist-note { font-size:13px; color:var(--text-secondary); line-height:1.8; padding:12px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); }
+.hist-note.err { background:var(--red-light); border-color:var(--red-border); color:var(--red-dark); }
+
 /* الكارت كله بلون الحالة: مرتجع (46) أحمر · Delivered (45) أخضر */
 .dlv-card.card-red   { background: var(--red-light);   border-color: var(--red-border); }
 .dlv-card.card-green { background: var(--green-light); border-color: var(--green-border); }
@@ -786,6 +806,7 @@ body {
 .exc-item:first-of-type { border-top: none; }
 .exc-meta { font-size: 11.5px; color: var(--amber-dark); opacity: .85; direction: ltr; text-align: right; }
 
+.badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:11.5px; font-weight:700; white-space:nowrap; }
 .badge-success { background: var(--green-light);  color: var(--green-dark);  border: 1px solid var(--green-border); }
 .badge-warn    { background: var(--amber-light);  color: var(--amber-dark);  border: 1px solid var(--amber-border); }
 .badge-danger  { background: var(--red-light);    color: var(--red-dark);    border: 1px solid var(--red-border); }
@@ -891,6 +912,16 @@ body {
       <div class="cl-version-block">
         <div class="cl-version-row">
           <span class="cl-ver-badge" id="clLatestVerBadge"></span>
+          <span class="cl-ver-date">03-10-2026</span>
+        </div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>زرار «🕘 سجل التحديثات» في كارت الشحنة — بيفتح لوحة جانبية بكل أحداث الشحنة (الأحدث فوق) من أحداث ويبهوك بوسطة. الشحنات الأقدم من تسجيل الويبهوك (20-09-2026) مالهاش سجل.</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>عرض النوع الأصلي <code>oldType</code> للشحنة المحوّلة لـ Return to Origin — «Return to Origin — كانت: Send/Exchange».</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row">
+          <span class="cl-ver-badge old">v3.1.0</span>
           <span class="cl-ver-date">30-09-2026</span>
         </div>
         <ul class="cl-items">
@@ -976,6 +1007,7 @@ body {
           <table>
             <tr><th>action</th><th>الوصف</th></tr>
             <tr><td><code>lookup</code></td><td>بحث في بوسطة بالـ Business Reference (<code>order</code>) أو رقم التتبع (<code>tracking</code>)</td></tr>
+            <tr><td><code>history</code></td><td>سجل أحداث شحنة (برقم التتبع) من جدول ويبهوك بوسطة في D1 — قراءة فقط</td></tr>
             <tr><td><code>check_employee</code> · <code>register_pin</code> · <code>verify_employee</code> · <code>log_logout</code> · <code>get_employees</code></td><td>Universal D1 Auth</td></tr>
             <tr><td><code>get_logs</code> · <code>get_logs_count</code> · <code>get_logs_export</code></td><td>سجل العمليات + التصدير</td></tr>
             <tr><td><code>diag</code> · <code>get_config</code></td><td>الفحص الذاتي ونسخة الـ Worker</td></tr>
@@ -1212,6 +1244,13 @@ body {
   </div>
 </div>
 
+<!-- Drawer سجل تحديثات الشحنة -->
+<div class="drawer-overlay" id="histOverlay" onclick="closeHistoryDrawer()"></div>
+<aside class="drawer" id="histDrawer" aria-hidden="true">
+  <div class="drawer-head"><div class="drawer-title" id="histTitle">—</div><button class="drawer-close" onclick="closeHistoryDrawer()" aria-label="إغلاق">✕</button></div>
+  <div class="drawer-body" id="histBody"></div>
+</aside>
+
 <!-- Toast Container -->
 <div class="toast-container" id="toastContainer"></div>
 
@@ -1437,12 +1476,12 @@ async function apiGet(action, params = {}) {
 // ══════════════════════════════════════════════════════════════
 // §SHELL-JS — الإعدادات · النسخة · التوست · حارس نسخة الـ Worker
 // ══════════════════════════════════════════════════════════════
-const TOOL_VERSION = 'v3.1.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
+const TOOL_VERSION = 'v3.2.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
 
 // أقل نسخة Worker الواجهة دي بتشتغل معاها. الواجهة بتبعت `tracking=` في lookup
-// وبتقرا addressClarityScore/exceptions[] (3.0.0) وبيقرا `shopify` (S1/S2) — اتضاف في Worker 3.1.0.
+// وبتقرا addressClarityScore/exceptions[] (3.0.0) وبيقرا `shopify` (S1/S2) — اتضاف في Worker 3.1.0. و`typeCode`/`oldType` + `action=history` — اتضافوا في Worker 3.2.0.
 // **مالهاش أي علاقة بـ TOOL_VERSION.**
-const MIN_WORKER_VERSION = '3.1.0';
+const MIN_WORKER_VERSION = '3.2.0';
 
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
@@ -2036,6 +2075,63 @@ function fieldsGrid(obj) {
     .join('');
 }
 
+// 🔴 النوع بيتعرض بالكود: 20 = Return to Origin، و`oldType` بيقول كانت إيه قبل التحويل.
+const OLD_TYPE_LABELS = { SEND: 'Send', EXCHANGE: 'Exchange', CUSTOMER_RETURN_PICKUP: 'Customer Return Pickup' };
+function typeText(d) {
+  if (!d) return null;
+  if (d.typeCode === 20 && d.oldType) return `${d.type || 'Return to Origin'} — كانت: ${OLD_TYPE_LABELS[d.oldType] || d.oldType}`;
+  return d.type;
+}
+
+// ─── §TOOL-JS::history — سجل تحديثات الشحنة (Drawer) ───
+const HIST_RESULT_LABELS = {
+  written: 'تم التسجيل', delivered_duplicate_skipped: 'Delivered مسبقًا — بدون كتابة',
+  returned_duplicate_skipped: 'Returned مسبقًا — بدون كتابة', dry_run_matched: 'تطابق (بدون كتابة)',
+  stale_skipped: 'أقدم من المكتوب', match_failed: 'فشلت المطابقة',
+  shopify_write_failed: 'فشلت الكتابة', processing: 'قيد المعالجة',
+};
+const HIST_RESULT_CLS = {
+  written: 'badge-success', dry_run_matched: 'badge-warn', match_failed: 'badge-danger',
+  shopify_write_failed: 'badge-danger',
+};
+function histBadge(status) {
+  const cls = HIST_RESULT_CLS[status] || 'badge-neutral';
+  return `<span class="badge ${cls}">${esc(HIST_RESULT_LABELS[status] || status || '—')}</span>`;
+}
+let histReqSeq = 0;
+async function openHistoryDrawer(tn) {
+  const seq = ++histReqSeq;   // رد قديم مايكتبش فوق شحنة أحدث
+  const ref = (allDeliveries.find(x => String(x.trackingNumber) === String(tn)) || {}).businessReference || '';
+  const title = document.getElementById('histTitle');
+  const body  = document.getElementById('histBody');
+  title.innerHTML = `سجل ${esc(tn)}${ref ? ` · ${esc(ref)}` : ''}`;
+  body.innerHTML = '<div class="hist-note"><span class="loading-spinner"></span> جارٍ تحميل السجل...</div>';
+  document.getElementById('histOverlay').classList.add('open');
+  const dr = document.getElementById('histDrawer'); dr.classList.add('open'); dr.setAttribute('aria-hidden', 'false');
+  try {
+    const data = await apiGet('history', { tracking: tn });
+    if (seq !== histReqSeq) return;
+    const evs = data.events || [];
+    title.innerHTML = `سجل ${esc(tn)}${ref ? ` · ${esc(ref)}` : ''} <span style="color:var(--text-secondary);font-weight:400">(${evs.length} حدث)</span>`;
+    body.innerHTML = evs.length ? evs.map((e, i) => `
+      <div class="tl-item ${i === 0 ? 'latest' : ''}">
+        <div class="tl-desc">${esc(e.description || '—')} <span style="color:var(--text-secondary);font-weight:400">(${esc(e.state)})</span></div>
+        <div class="tl-meta"><span>${formatDateTime(e.received_at)}</span><span>محاولات: ${e.number_of_attempts ?? '—'}</span>${histBadge(e.write_status)}</div>
+      </div>`).join('')
+      // صفر صفوف مش معناه "الشحنة ماتحركتش" — الويبهوك ما غطّاهاش
+      : '<div class="hist-note">مفيش سجل مسجَّل لهذه الشحنة. الشحنات الأقدم من تسجيل رابط الويبهوك (20-09-2026) عمرها ما بعتت أي حدث — ده <b>مش</b> معناه إنها ما اتحركتش.</div>';
+  } catch (err) {
+    if (seq !== histReqSeq) return;
+    body.innerHTML = `<div class="hist-note err">⚠️ <b>تعذّر تحميل السجل</b> — ${esc(err.message)}<br>ده <b>مش</b> معناه إن الشحنة مالهاش أحداث.</div>`;
+  }
+}
+function closeHistoryDrawer() {
+  histReqSeq++;
+  document.getElementById('histOverlay').classList.remove('open');
+  const dr = document.getElementById('histDrawer'); dr.classList.remove('open'); dr.setAttribute('aria-hidden', 'true');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHistoryDrawer(); });
+
 function renderResults() {
   const d = allDeliveries[activeIdx];
   if (!d) { document.getElementById('results').innerHTML = ''; return; }
@@ -2045,7 +2141,7 @@ function renderResults() {
       + `<div class="dlv-tabs">${allDeliveries.map((x, i) =>
         `<button class="dlv-tab${i === activeIdx ? ' active' : ''}" onclick="switchDelivery(${i})">`
         + `<span class="t-top"><span class="t-idx">شحنة ${i + 1} من ${allDeliveries.length}</span>`
-        + `<span class="t-type">${esc(x.type || '—')}</span></span>`
+        + `<span class="t-type">${esc(typeText(x) || '—')}</span></span>`
         + `<span class="t-tn">${esc(x.trackingNumber || '—')}</span>`
         + `<span class="t-state ${stateClass(x.stateLabel)}">${esc(x.stateLabel)}${x.stateCode != null ? ` (${esc(x.stateCode)})` : ''}</span>`
         + `</button>`
@@ -2092,10 +2188,11 @@ function renderResults() {
             : '—'}</span>
           <span class="state-badge ${stateClass(d.stateLabel)}">${esc(stateTxt)}</span>
           ${d.maskedState ? `<span style="font-size:12px;color:var(--text-secondary)">${esc(d.maskedState)}</span>` : ''}
+          ${d.trackingNumber ? `<button class="hist-btn" onclick="openHistoryDrawer('${esc(String(d.trackingNumber))}')">🕘 سجل التحديثات</button>` : ''}
           <div class="dlv-upd"><span class="field-label">آخر تحديث</span>${fieldVal(d.updatedAt ? formatDateTime(d.updatedAt) : null)}</div>
         </div>
         <div class="fields-grid">${fieldsGrid({
-          'النوع':          d.type,
+          'النوع':          typeText(d),
           'COD':            d.cod != null ? `${Number(d.cod).toLocaleString('en-US')} EGP` : null,
           'عدد المحاولات':  d.attempts,
           'أُنشئت':         d.createdAt   ? formatDateTime(d.createdAt)   : null,
