@@ -2,12 +2,15 @@
 
 # البحث عن أوردر بوسطة (`Bosta-Order-Lookup`)
 
-![version](https://img.shields.io/badge/version-v2.0.1-blue)
+![version](https://img.shields.io/badge/version-v3.2.0-blue)
 
 **بتعمل إيه:** البحث عن شحنة بوسطة برقم الأوردر (Business Reference) وعرض حالتها،
 مع زرار لمزامنة 4 ميتافيلدز على أوردر Shopify، وسجل عمليات في D1.
 **مين بيستخدمها:** مخزن / خدمة عملاء
-**الإصدار:** Worker `v3.1.0` · الواجهة `v3.1.0`
+**الإصدار:** Worker `v3.2.0` · الواجهة `v3.2.0`
+
+> 🆕 **v3.2.0 (03-10-2026):** (١) `lookup` بيرجّع كمان `typeCode` و`oldType` والواجهة بتعرض «Return to Origin — كانت: Send/Exchange» لما `typeCode === 20`. (٢) زرار «🕘 سجل التحديثات» + `?action=history&tracking=<tn>` — قراءة فقط من `bosta_webhook_events` (نفس D1 بتاع `Bosta-Webhook-Status-Receiver`). محتاج جدول الويبهوك موجود؛ ناقص = 503 صريح. الشحنات الأقدم من تسجيل الويبهوك (20-09-2026) مالهاش سجل والواجهة بتوضّح ده.
+> ⚠️ **لسه مش متأكَّد:** إن `POST /deliveries/search` بيرجّع `oldType` فعلًا (اتلقط من الـ Raw Payload على شحنات RTO). لو الحقل مش ظاهر في Raw Payload لشحنة `type 20` حقيقية، الحل نداء `GET /deliveries/business/{tn}` للشحنات `typeCode 20` بس.
 
 > 🔴 **v3.1.0:** `lookup` بيرجّع كمان `shopify` (قراءة فقط: S1/S2 ورقم الأوردر للينك). محتاج تضيف `CLIENT_ID` و`CLIENT_SECRET` كـ Secrets + Promote (`SHOP_DOMAIN` جاي من `wrangler.toml`). لو ناقصين، البحث في بوسطة يشتغل عادي والواجهة تعرض تنبيه بدل S1/S2.
 
@@ -29,6 +32,7 @@
 | `POST ?action=sync` | مزامنة 4 ميتافيلدز (`bosta_tracking_number` · `bosta_webhook` · `bosta_order_type` · `bosta_number_of_attempts`) على أوردر Shopify |
 | `GET ?action=check_employee` · `POST register_pin` · `POST verify_employee` · `GET log_logout` · `GET get_employees` | Universal D1 Auth |
 | `GET ?action=get_logs` · `get_logs_count` · `get_logs_export` | سجل العمليات + التصدير |
+| `GET ?action=history&tracking=<tn>` | سجل أحداث شحنة من جدول `bosta_webhook_events` (قراءة فقط، 503 لو الجدول ناقص) |
 | `GET ?action=diag` · `get_config` | الفحص الذاتي ونسخة الـ Worker |
 
 > ⛔ **الشكل القديم اتشال في v2.0.0:** `GET /?order=` و`POST /sync` مابقوش شغالين.
@@ -107,6 +111,9 @@ Build watch paths : * الافتراضي
 - **`esc()` بتستخدم `"`/`'` جوّه الـ regex عن قصد** — علامة اقتباس
   خام جوّه regex literal بتكسر فحص الربط (Step 9B) وتخلّيه يبلّغ عن دوال معرّفة
   إنها مش معرّفة. السلوك وقت التشغيل واحد.
+
+- 🔴 **`history` صفر صفوف مش دليل.** الشحنة اللي مالهاش أحداث ممكن تكون أقدم من تسجيل الويبهوك مش ساكنة. الواجهة بتقول كده صراحةً، وفشل الاستعلام بيتعرض كخطأ مش «مفيش سجل».
+- 🔴 **الفلترة بالنوع على `typeCode` مش على النص.** شحنة `Send`/`Exchange` اللي بوسطة رجّعتها بتبقى `20` و`oldType` بيقول الأصل (`bosta-api-helper` Step 2).
 
 ## استرجاع النسخ القديمة
 
