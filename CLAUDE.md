@@ -2,14 +2,17 @@
 
 # البحث عن أوردر بوسطة (`Bosta-Order-Lookup`)
 
-![version](https://img.shields.io/badge/version-v3.2.0-blue)
+![version](https://img.shields.io/badge/version-v3.3.0-blue)
 
 **بتعمل إيه:** البحث عن شحنة بوسطة برقم الأوردر (Business Reference) وعرض حالتها،
 مع زرار لمزامنة 4 ميتافيلدز على أوردر Shopify، وسجل عمليات في D1.
 **مين بيستخدمها:** مخزن / خدمة عملاء
-**الإصدار:** Worker `v3.2.0` · الواجهة `v3.2.0`
+**الإصدار:** Worker `v3.3.0` · الواجهة `v3.3.0`
 
-> 🆕 **v3.2.0 (03-10-2026):** (١) `lookup` بيرجّع كمان `typeCode` و`oldType` والواجهة بتعرض «Return to Origin — كانت: Send/Exchange» لما `typeCode === 20`. (٢) زرار «🕘 سجل التحديثات» + `?action=history&tracking=<tn>` — قراءة فقط من `bosta_webhook_events` (نفس D1 بتاع `Bosta-Webhook-Status-Receiver`). محتاج جدول الويبهوك موجود؛ ناقص = 503 صريح. الشحنات الأقدم من تسجيل الويبهوك (20-09-2026) مالهاش سجل والواجهة بتوضّح ده.
+> 🆕 **v3.3.0 (13-10-2026):** (١) `?action=history` بيرجّع كمان `exception_reason` (كان ناقص من الـ SELECT) والواجهة بتعرضه **معرّبًا** تحت كل حدث في «🕘 سجل التحديثات». (٢) «سجلات محاولات التسليم الفاشلة» اتعاد تصميمها: كارت لكل محاولة مرقّمة، السبب بالعربي والأصل الإنجليزي تحته، الكود، المندوب/التليفون/الوقت. `MIN_WORKER_VERSION` بقت `3.3.0`.
+> ⚠️ **قائمة التعريب `REASON_AR_BY_EN` نسخة تانية من اللي في `Delivery-COD-Operations-Center/Bosta-Webhook-Status-Receiver.html`** — أي سبب جديد يتضاف في الاتنين (غير المعروف بيتعرض حرفيًا).
+
+> **v3.2.0 (03-10-2026):** (١) `lookup` بيرجّع كمان `typeCode` و`oldType` والواجهة بتعرض «Return to Origin — كانت: Send/Exchange» لما `typeCode === 20`. (٢) زرار «🕘 سجل التحديثات» + `?action=history&tracking=<tn>` — قراءة فقط من `bosta_webhook_events` (نفس D1 بتاع `Bosta-Webhook-Status-Receiver`). محتاج جدول الويبهوك موجود؛ ناقص = 503 صريح. الشحنات الأقدم من تسجيل الويبهوك (20-09-2026) مالهاش سجل والواجهة بتوضّح ده.
 > ⚠️ **لسه مش متأكَّد:** إن `POST /deliveries/search` بيرجّع `oldType` فعلًا (اتلقط من الـ Raw Payload على شحنات RTO). لو الحقل مش ظاهر في Raw Payload لشحنة `type 20` حقيقية، الحل نداء `GET /deliveries/business/{tn}` للشحنات `typeCode 20` بس.
 
 > 🔴 **v3.1.0:** `lookup` بيرجّع كمان `shopify` (قراءة فقط: S1/S2 ورقم الأوردر للينك). محتاج تضيف `CLIENT_ID` و`CLIENT_SECRET` كـ Secrets + Promote (`SHOP_DOMAIN` جاي من `wrangler.toml`). لو ناقصين، البحث في بوسطة يشتغل عادي والواجهة تعرض تنبيه بدل S1/S2.
