@@ -3,6 +3,12 @@
 // Worker: bosta-order-lookup-worker — EcomModa
 // skills: worker-builder v3.7.0 · html-builder v7.0.0 · bosta-api-helper v1.1.0 · constants v3.1.0 · shopify-graphql-helper v2.1.0 — 24-09-2026
 //
+// WORKER_VERSION 3.4.0 — `shapeDelivery` بيرجّع كمان: (١) `canceledAt` (state.canceled.time) و`whatsapp`
+// (whatsAppLastMileActions + confirmationStatus) و`callsNumber`/`smsNumber` — تفاصيل الإلغاء ومحادثات واتساب.
+// (٢) `location` = الموقع الحالي للشحنة (أول كتلة جوه `state` فيها `warehouse` — مثلًا receivedAtWarehouse للكود 24)،
+// و`null` لو الحالة الحالية مالهاش كتلة مخزن. (٣) `exceptions[]` فيها `whatsAppVerification`/`botCallVerification` (تمرير بس).
+// كله قراية من الرد — مفيش نداء جديد لبوسطة ولا schema change.
+//
 // WORKER_VERSION 3.3.0 — `action=history` بيرجّع كمان `exception_reason` (كان ناقص من الـ SELECT
 // فالواجهة ماكانتش تقدر تعرض سبب فشل التوصيل في سجل التحديثات). عمود موجود أصلًا في الجدول — مفيش schema change.
 //
@@ -52,7 +58,7 @@
 // ══════════════════════════════════════════════════════════════
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
-const WORKER_VERSION = '3.3.0';
+const WORKER_VERSION = '3.4.0';
 
 // قيمة `tool` في جدول logs — ecommoda-constants §7
 const TOOL_NAME = 'bosta_lookup';
@@ -478,6 +484,26 @@ async function bostaSearch(env, body) {
   return extractDeliveries(raw);
 }
 
+// الموقع الحالي: بوسطة بتحط بيانات المخزن جوه كتلة اسمها بحسب الحالة (receivedAtWarehouse للكود 24).
+// بندوّر على أول كتلة جوه `state` فيها `warehouse` بدل ما نربط الكود باسم كتلة واحدة.
+// مفيش كتلة = null (الواجهة بتقول «الموقع غير متاح لهذه الحالة») — متخمّنش موقع من `holder`.
+function shapeLocation(state) {
+  if (!state || typeof state !== 'object') return null;
+  for (const [key, blk] of Object.entries(state)) {
+    const w = blk && typeof blk === 'object' ? blk.warehouse : null;
+    if (w && typeof w === 'object' && (w.name || w.nameAr)) {
+      return {
+        stateKey: key,
+        name:     w.name ?? null,
+        nameAr:   w.nameAr ?? null,
+        type:     w.type ?? null,
+        time:     blk.time ?? null,
+      };
+    }
+  }
+  return null;
+}
+
 // الحقول اللي الواجهة بتعرضها — بنرجّع شكل مستقر بدل الـ raw الكامل،
 // ومعاه الـ raw عشان تاب "Raw Payload".
 function shapeDelivery(d) {
@@ -514,6 +540,18 @@ function shapeDelivery(d) {
     isAddressClear:      d.dropOffAddress?.isAddressClear ?? null,
     isBadAddress:        d.dropOffAddress?.isBadAddress ?? null,
     pickedUpTime:        d.state?.pickedUpTime ?? null,
+    // 🔴 الإلغاء مش مربوط بكود الحالة (الشحنة ممكن تبقى 24 وهي ملغية) — الواجهة بتحكم بوجود أي إشارة.
+    canceledAt:          d.state?.canceled?.time ?? null,
+    whatsapp: {
+      orderStatus:        d.whatsAppLastMileActions?.orderStatus ?? null,
+      isCancelled:        d.whatsAppLastMileActions?.cancel?.isCancelled ?? null,
+      confirmationSource: d.confirmationStatus?.latestSource ?? null,
+      confirmationValue:  d.confirmationStatus?.value ?? null,
+      confirmationAt:     d.confirmationStatus?.updatedAt ?? null,
+    },
+    callsNumber:         d.callsNumber ?? null,
+    smsNumber:           d.smsNumber ?? null,
+    location:            shapeLocation(d.state),
     exceptions:          Array.isArray(d.state?.exception)
       ? d.state.exception.map(x => ({
           reason: x?.reason ?? null,
@@ -521,6 +559,9 @@ function shapeDelivery(d) {
           time:   x?.time ?? null,
           userName:  x?.user?.name?.trim() ?? null,
           userPhone: x?.user?.phone ?? null,
+          // شكلهم غير موثّق (bosta-api-helper Step 3) — تمرير بس، والواجهة بتعرضهم لو موجودين.
+          whatsAppVerification: x?.whatsAppVerification ?? null,
+          botCallVerification:  x?.botCallVerification ?? null,
         }))
       : [],
     raw:               d,

@@ -822,6 +822,26 @@ body {
 .exc-meta { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--text-secondary); }
 .exc-meta .ltr { direction: ltr; unicode-bidi: embed; }
 
+/* ── صناديق الموقع الحالي · الإلغاء · واتساب (v3.4.0) ── */
+.info-box { margin-top: 14px; padding: 12px 14px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--border-strong); color: var(--text-primary); }
+.info-box .ib-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  font-size: 12.5px; font-weight: 800; }
+.info-box.ib-red   { background: var(--surface); border-color: var(--red-border);   }
+.info-box.ib-red   .ib-hdr { color: var(--red); }
+.info-box.ib-green { background: var(--green-light); border-color: var(--green-border); }
+.info-box.ib-green .ib-hdr { color: var(--green-dark); }
+.info-box.ib-blue  { background: var(--accent-light); border-color: var(--accent-border); }
+.info-box.ib-blue  .ib-hdr { color: var(--accent-dark); }
+.ib-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.ib-name { font-size: 15px; font-weight: 800; }
+.ib-sub  { font-size: 12px; color: var(--text-secondary); }
+.ib-chip { font-size: 11px; font-weight: 700; padding: 0 8px; border-radius: 20px; line-height: 20px;
+  background: var(--surface); border: 1px solid var(--accent-border); color: var(--accent-dark); }
+.ib-note { font-size: 12.5px; color: var(--text-secondary); }
+.ib-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-mid); }
+.ib-list .ltr { direction: ltr; unicode-bidi: embed; font-family: var(--font-mono); }
+
 .badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:11.5px; font-weight:700; white-space:nowrap; }
 .badge-success { background: var(--green-light);  color: var(--green-dark);  border: 1px solid var(--green-border); }
 .badge-warn    { background: var(--amber-light);  color: var(--amber-dark);  border: 1px solid var(--amber-border); }
@@ -928,6 +948,18 @@ body {
       <div class="cl-version-block">
         <div class="cl-version-row">
           <span class="cl-ver-badge" id="clLatestVerBadge"></span>
+          <span class="cl-ver-date">14-10-2026</span>
+        </div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>«📍 الموقع الحالي للشحنة» (هب / مخزن + نوعه + وقت الوصول + آخر تحديث من بوسطة). الحالات اللي مالهاش مخزن بتعرض «الموقع غير متاح لهذه الحالة».</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>«🚫 تفاصيل الإلغاء»: وقت الإلغاء ومصدره وحالة الأوردر والتحويل لـ Return to Origin، وأي سبب «Cancellation» مرتبط من محاولات التسليم. الموجود بس بيتعرض.</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>«💬 محادثات واتساب مع العميل»: آخر تأكيد ومصدره ووقته، وعدد المكالمات والرسائل، ونتايج تحقق واتساب/البوت لو موجودة.</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>كارت الشحنة كله أحمر لما فيه أي إشارة إلغاء (مش مربوط بكود الحالة).</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row">
+          <span class="cl-ver-badge old">v3.3.0</span>
           <span class="cl-ver-date">13-10-2026</span>
         </div>
         <ul class="cl-items">
@@ -1502,12 +1534,12 @@ async function apiGet(action, params = {}) {
 // ══════════════════════════════════════════════════════════════
 // §SHELL-JS — الإعدادات · النسخة · التوست · حارس نسخة الـ Worker
 // ══════════════════════════════════════════════════════════════
-const TOOL_VERSION = 'v3.3.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
+const TOOL_VERSION = 'v3.4.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
 
 // أقل نسخة Worker الواجهة دي بتشتغل معاها. الواجهة بتبعت `tracking=` في lookup
 // وبتقرا addressClarityScore/exceptions[] (3.0.0) وبيقرا `shopify` (S1/S2) — اتضاف في Worker 3.1.0. و`typeCode`/`oldType` + `action=history` — اتضافوا في Worker 3.2.0.
 // **مالهاش أي علاقة بـ TOOL_VERSION.**
-const MIN_WORKER_VERSION = '3.3.0';   // 3.3.0: history بيرجّع exception_reason
+const MIN_WORKER_VERSION = '3.4.0';   // 3.4.0: الموقع الحالي + الإلغاء + واتساب (location · canceledAt · whatsapp · callsNumber/smsNumber)
 
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
@@ -2190,6 +2222,83 @@ function closeHistoryDrawer() {
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHistoryDrawer(); });
 
+// ─── v3.4.0: الإلغاء · واتساب · الموقع الحالي ───
+// 🔴 الإلغاء مش مربوط بكود الحالة (شحنة 24 ممكن تكون ملغية) — بنحكم بوجود أي إشارة.
+const WA_STATUS_AR = { cancelled: 'ملغي', canceled: 'ملغي' };
+const WA_SOURCE_AR = { whatsapp: 'واتساب' };
+const HUB_TYPE_AR  = { LAST_MILE_HUB: 'هب التسليم الأخير' };
+const lc = v => String(v ?? '').trim().toLowerCase();
+const mapOrRaw = (m, v) => (v == null || v === '') ? null : (m[lc(v)] || m[String(v)] || String(v));
+function isCanceledDelivery(d) {
+  const w = (d && d.whatsapp) || {};
+  return !!(d && (d.canceledAt || w.isCancelled === true
+    || lc(w.orderStatus) === 'cancelled' || lc(w.confirmationValue) === 'cancelled'));
+}
+function dropEmpty(o) {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null && v !== undefined && v !== ''));
+}
+function verifText(v) {
+  if (v === null || v === undefined || v === '') return null;
+  return typeof v === 'object' ? JSON.stringify(v) : String(v);
+}
+function renderCancelBox(d) {
+  if (!isCanceledDelivery(d)) return '';
+  const w = d.whatsapp || {};
+  // سبب مرتبط: آخر محاولة سببها بيبدأ بـ Cancellation (أكواد 4/6/8/12) — مش حقل سبب إلغاء صريح من بوسطة
+  const canc = (Array.isArray(d.exceptions) ? d.exceptions : [])
+    .filter(x => /^cancellation\b/i.test(String(x.reason || '').trim()))
+    .sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0))[0];
+  const rp = canc ? reasonParts(canc.reason) : null;
+  const rows = dropEmpty({
+    'وقت الإلغاء':     d.canceledAt ? formatDateTime(d.canceledAt) : null,
+    'مصدر الإلغاء':    mapOrRaw(WA_SOURCE_AR, w.confirmationSource),
+    'حالة الأوردر':    mapOrRaw(WA_STATUS_AR, w.orderStatus || w.confirmationValue),
+    'سبب مرتبط':       rp ? rp.ar : null,
+    'بعد الإلغاء':     d.typeCode === 20 ? `اتحوّلت لـ ${d.type || 'Return to Origin'}${d.oldType ? ` — كانت: ${OLD_TYPE_LABELS[d.oldType] || d.oldType}` : ''}` : null,
+  });
+  return `<div class="info-box ib-red"><div class="ib-hdr"><span>🚫 تفاصيل الإلغاء</span></div>`
+    + `<div class="fields-grid">${fieldsGrid(rows)}</div></div>`;
+}
+function renderWhatsappBox(d) {
+  const w = d.whatsapp || {};
+  const verifs = (Array.isArray(d.exceptions) ? d.exceptions : []).map((x, i, arr) => ({
+    n: arr.length - i, wa: verifText(x.whatsAppVerification), bot: verifText(x.botCallVerification),
+  })).filter(v => v.wa || v.bot);
+  const rows = dropEmpty({
+    'مصدر آخر تأكيد':    mapOrRaw(WA_SOURCE_AR, w.confirmationSource),
+    'حالة التأكيد':       mapOrRaw(WA_STATUS_AR, w.confirmationValue),
+    'حالة الأوردر (واتساب)': mapOrRaw(WA_STATUS_AR, w.orderStatus),
+    'وقت آخر تحديث':      w.confirmationAt ? formatDateTime(w.confirmationAt) : null,
+    'عدد المكالمات':      d.callsNumber,
+    'عدد الرسائل (SMS)':  d.smsNumber,
+  });
+  if (!Object.keys(rows).length && !verifs.length) return '';
+  const vHtml = verifs.length
+    ? `<div class="ib-list">${verifs.map(v =>
+        `<div>محاولة ${v.n}:${v.wa ? ` تحقق واتساب <span class="ltr">${esc(v.wa)}</span>` : ''}${v.bot ? ` · مكالمة بوت <span class="ltr">${esc(v.bot)}</span>` : ''}</div>`).join('')}</div>`
+    : '';
+  return `<div class="info-box ib-green"><div class="ib-hdr"><span>💬 محادثات واتساب مع العميل</span></div>`
+    + `<div class="fields-grid">${fieldsGrid(rows)}</div>${vHtml}</div>`;
+}
+function renderLocationBox(d) {
+  const L = d.location;
+  if (!L) {
+    return `<div class="info-box ib-blue"><div class="ib-hdr"><span>📍 الموقع الحالي للشحنة</span></div>`
+      + `<div class="ib-note">الموقع غير متاح لهذه الحالة${d.stateLabel ? ` (${esc(d.stateLabel)})` : ''}</div></div>`;
+  }
+  const typeLbl = L.type ? (HUB_TYPE_AR[L.type] || L.type) : null;
+  const arName  = L.nameAr && L.nameAr !== L.name ? L.nameAr : null;
+  const rows = dropEmpty({
+    [L.stateKey === 'receivedAtWarehouse' ? 'وقت الوصول' : 'وقت الحدث']: L.time ? formatDateTime(L.time) : null,
+    'آخر تحديث من بوسطة': d.updatedAt ? formatDateTime(d.updatedAt) : null,
+  });
+  return `<div class="info-box ib-blue"><div class="ib-hdr"><span>📍 الموقع الحالي للشحنة</span></div>`
+    + `<div class="ib-main"><span class="ib-name">${esc(L.name || L.nameAr)}</span>`
+    + `${arName ? `<span class="ib-sub">${esc(arName)}</span>` : ''}`
+    + `${typeLbl ? `<span class="ib-chip">${esc(typeLbl)}</span>` : ''}</div>`
+    + `<div class="fields-grid">${fieldsGrid(rows)}</div></div>`;
+}
+
 function renderResults() {
   const d = allDeliveries[activeIdx];
   if (!d) { document.getElementById('results').innerHTML = ''; return; }
@@ -2207,8 +2316,8 @@ function renderResults() {
     : '';
 
   const stateTxt = `${d.stateLabel}${d.stateCode != null ? ` (${d.stateCode})` : ''}`;
-  // لون الكارت كله: مرتجع للتاجر (46) أحمر · Delivered (45) أخضر
-  const cardTone = d.stateCode === 46 ? ' card-red' : (d.stateCode === 45 ? ' card-green' : '');
+  // لون الكارت كله: مرتجع للتاجر (46) أو ملغي (أي إشارة إلغاء) أحمر · Delivered (45) أخضر
+  const cardTone = (d.stateCode === 46 || isCanceledDelivery(d)) ? ' card-red' : (d.stateCode === 45 ? ' card-green' : '');
   // سجلات محاولات التسليم الفاشلة — الأحدث فوق (بوسطة بترجّعهم من الأقدم للأحدث)
   const excs = Array.isArray(d.exceptions) ? d.exceptions.slice().reverse() : [];
   const excHtml = excs.length
@@ -2259,7 +2368,8 @@ function renderResults() {
           ${d.trackingNumber ? `<button class="hist-btn" onclick="openHistoryDrawer('${esc(String(d.trackingNumber))}')">🕘 سجل التحديثات</button>` : ''}
           <div class="dlv-upd"><span class="field-label">آخر تحديث</span>${fieldVal(d.updatedAt ? formatDateTime(d.updatedAt) : null)}</div>
         </div>
-        <div class="fields-grid">${fieldsGrid({
+        ${renderLocationBox(d)}
+        <div class="fields-grid" style="margin-top:14px">${fieldsGrid({
           'النوع':          typeText(d),
           'COD':            d.cod != null ? `${Number(d.cod).toLocaleString('en-US')} EGP` : null,
           'عدد المحاولات':  d.attempts,
@@ -2269,6 +2379,8 @@ function renderResults() {
           'ملاحظات':        d.notes,
           'وقت الاستلام':   d.pickedUpTime ? formatDateTime(d.pickedUpTime) : null,
         })}</div>
+        ${renderCancelBox(d)}
+        ${renderWhatsappBox(d)}
         ${excHtml}
       </div>
 
