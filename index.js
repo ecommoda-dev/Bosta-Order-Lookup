@@ -3,6 +3,9 @@
 // Worker: bosta-order-lookup-worker — EcomModa
 // skills: worker-builder v3.7.0 · html-builder v7.0.0 · bosta-api-helper v1.1.0 · constants v3.1.0 · shopify-graphql-helper v2.1.0 — 24-09-2026
 //
+// WORKER_VERSION 3.3.0 — `action=history` بيرجّع كمان `exception_reason` (كان ناقص من الـ SELECT
+// فالواجهة ماكانتش تقدر تعرض سبب فشل التوصيل في سجل التحديثات). عمود موجود أصلًا في الجدول — مفيش schema change.
+//
 // WORKER_VERSION 3.2.0 — (١) `shapeDelivery` بيرجّع `typeCode` (type.code الرقمي) و`oldType`
 // (النوع الأصلي قبل التحويل لـ Return to Origin — bosta-api-helper Step 2). (٢) endpoint جديد
 // `?action=history&tracking=<tn>`: قراءة فقط من جدول `bosta_webhook_events` في نفس D1
@@ -49,7 +52,7 @@
 // ══════════════════════════════════════════════════════════════
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
-const WORKER_VERSION = '3.2.0';
+const WORKER_VERSION = '3.3.0';
 
 // قيمة `tool` في جدول logs — ecommoda-constants §7
 const TOOL_NAME = 'bosta_lookup';
@@ -743,7 +746,7 @@ export default {
         if (!env.DB) return json({ ok: false, error: 'DB (D1 binding) غير مضبوط' }, 500, request);
         try {
           const { results } = await env.DB.prepare(
-            `SELECT id, state, description, number_of_attempts, bosta_timestamp, received_at, write_status
+            `SELECT id, state, description, number_of_attempts, exception_reason, bosta_timestamp, received_at, write_status
                FROM bosta_webhook_events WHERE tracking_number = ?
               ORDER BY bosta_timestamp DESC, received_at DESC, id DESC LIMIT 500`
           ).bind(tracking).all();

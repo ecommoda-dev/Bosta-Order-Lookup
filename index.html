@@ -747,6 +747,10 @@ body {
 .tl-item.latest::before { background:var(--accent); }
 .tl-item:last-child { border-right-color:transparent; }
 .tl-desc { font-weight:600; font-size:13px; }
+.tl-reason { margin-top:5px; padding:5px 10px; border-radius:var(--radius-sm); background:var(--amber-light);
+  border:1px solid var(--amber-border); color:var(--amber-dark); font-size:12.5px; line-height:1.6; }
+.tl-reason b { font-weight:700; }
+.tl-reason .en { display:block; direction:ltr; text-align:right; font-size:11px; opacity:.8; }
 .tl-meta { font-size:12px; color:var(--text-secondary); margin-top:2px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .hist-note { font-size:13px; color:var(--text-secondary); line-height:1.8; padding:12px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); }
 .hist-note.err { background:var(--red-light); border-color:var(--red-border); color:var(--red-dark); }
@@ -794,17 +798,29 @@ body {
 .field-value.ar   { font-family: var(--font-body); direction: rtl; }
 .field-value.none { color: var(--text-muted); font-weight: 400; font-family: var(--font-body); }
 
-.exception-box { margin-top: 14px; padding: 11px 15px; border-radius: var(--radius-sm);
-  background: var(--amber-light); border: 1px solid var(--amber-border);
-  color: var(--amber-dark); font-size: 12.5px; line-height: 1.7; }
-.exception-box strong { display: block; margin-bottom: 3px; font-size: 11px;
-  letter-spacing: .5px; text-transform: uppercase; }
-
-.dlv-tn-link { color: var(--accent-dark); text-decoration: none; }
-.dlv-tn-link:hover { text-decoration: underline; }
-.exc-item { padding: 6px 0; border-top: 1px dashed var(--amber-border); }
-.exc-item:first-of-type { border-top: none; }
-.exc-meta { font-size: 11.5px; color: var(--amber-dark); opacity: .85; direction: ltr; text-align: right; }
+.exception-box { margin-top: 14px; padding: 12px 14px; border-radius: var(--radius-sm);
+  background: var(--amber-light); border: 1px solid var(--amber-border); color: var(--amber-dark); }
+.exc-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  font-size: 12.5px; font-weight: 800; }
+.exc-hdr .cnt { background: var(--amber); color: #fff; border-radius: 20px; padding: 0 9px;
+  font-size: 11.5px; line-height: 19px; }
+.exc-list { display: flex; flex-direction: column; gap: 8px; }
+.exc-item { display: flex; gap: 10px; padding: 9px 12px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--amber-border); }
+.exc-no { flex: none; width: 22px; height: 22px; border-radius: 50%; margin-top: 1px;
+  background: var(--amber-light); border: 1px solid var(--amber-border); color: var(--amber-dark);
+  font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.exc-main { flex: 1; min-width: 0; }
+.exc-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.exc-reason { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+.exc-latest { font-size: 10.5px; font-weight: 700; padding: 0 8px; border-radius: 20px;
+  background: var(--amber); color: #fff; }
+.exc-code { font-size: 11px; font-weight: 700; font-family: var(--font-mono); direction: ltr;
+  padding: 0 7px; border-radius: 4px; background: var(--surface-2); color: var(--text-mid);
+  border: 1px solid var(--border-strong); }
+.exc-en { margin-top: 2px; font-size: 11.5px; color: var(--text-secondary); direction: ltr; text-align: right; }
+.exc-meta { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--text-secondary); }
+.exc-meta .ltr { direction: ltr; unicode-bidi: embed; }
 
 .badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:11.5px; font-weight:700; white-space:nowrap; }
 .badge-success { background: var(--green-light);  color: var(--green-dark);  border: 1px solid var(--green-border); }
@@ -912,6 +928,16 @@ body {
       <div class="cl-version-block">
         <div class="cl-version-row">
           <span class="cl-ver-badge" id="clLatestVerBadge"></span>
+          <span class="cl-ver-date">13-10-2026</span>
+        </div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>سبب فشل التوصيل بقى ظاهر في «🕘 سجل التحديثات» تحت كل حدث Exception، <b>معرّب</b> بنفس قائمة تعريب مستقبل حالة شحنات بوسطة (السبب غير المعروف بيتعرض زي ما هو).</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>«سجلات محاولات التسليم الفاشلة» اتعاد تصميمها: كارت لكل محاولة بترقيمها، السبب بالعربي والأصل الإنجليزي تحته، كود السبب، واسم المندوب وتليفونه والوقت.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row">
+          <span class="cl-ver-badge old">v3.2.0</span>
           <span class="cl-ver-date">03-10-2026</span>
         </div>
         <ul class="cl-items">
@@ -1476,12 +1502,12 @@ async function apiGet(action, params = {}) {
 // ══════════════════════════════════════════════════════════════
 // §SHELL-JS — الإعدادات · النسخة · التوست · حارس نسخة الـ Worker
 // ══════════════════════════════════════════════════════════════
-const TOOL_VERSION = 'v3.2.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
+const TOOL_VERSION = 'v3.3.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
 
 // أقل نسخة Worker الواجهة دي بتشتغل معاها. الواجهة بتبعت `tracking=` في lookup
 // وبتقرا addressClarityScore/exceptions[] (3.0.0) وبيقرا `shopify` (S1/S2) — اتضاف في Worker 3.1.0. و`typeCode`/`oldType` + `action=history` — اتضافوا في Worker 3.2.0.
 // **مالهاش أي علاقة بـ TOOL_VERSION.**
-const MIN_WORKER_VERSION = '3.2.0';
+const MIN_WORKER_VERSION = '3.3.0';   // 3.3.0: history بيرجّع exception_reason
 
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
@@ -2083,6 +2109,37 @@ function typeText(d) {
   return d.type;
 }
 
+// ─── تعريب أسباب فشل التوصيل — نفس قائمة Bosta-Webhook-Status-Receiver (REASON_AR_BY_EN) ───
+// أي سبب مش في القائمة بيتعرض زي ما هو حرفيًا. المطابقة بتتجاهل الحروف الكبيرة/الصغيرة والنقطة الأخيرة.
+// ⚠️ نسختين من نفس القائمة (هنا وفي مستقبل الحالات) — أي سبب جديد يتضاف في الاتنين.
+const REASON_AR_BY_EN = {
+  'Retry delivery - the customer is not in the address.': 'العميل غير متواجد',
+  'Retry delivery - the customer changed the address.': 'العميل غيّر العنوان',
+  'Postponed - the customer requested postponement for another day.': 'تأجيل بطلب من العميل',
+  'Cancellation - the customer wants to open the shipment.': '(إلغاء) العميل يريد فتح الشحنة',
+  'Waiting for data modification - address or phone number not clear/wrong.': 'العنوان / التليفون خطأ',
+  'Cancellation - cancellation of delivery at the request of the sender.': 'إلغاء بطلب من المُرسل',
+  'Customer is not answering.': 'العميل لا يرد',
+  'Cancellation - the customer refuses to receive the shipment.': '(إلغاء) العميل رفض الاستلام',
+  'Cancellation - the delivery address is outside Bosta coverage area.': '(إلغاء) العنوان خارج التغطية',
+  'Waiting for data modification - address not clear.': 'العنوان غير واضح',
+  'Waiting for data modification - wrong phone number.': 'رقم التليفون خطأ',
+  'Bad Weather.': 'ظروف جوية',
+  'Suspicious consignee.': 'اشتباه في المُرسل إليه',
+  'Cancellation - The customer refuses to give the shipment to the star': '(إلغاء) العميل رفض الاستلام',
+  'Cancellation - product issue': '(إلغاء) مشكلة منتج',
+  'Description / Number of items does not match the order': 'وصف / عدد المنتجات مختلف عن المسجّل في الشحنة',
+};
+const normReason = r => String(r).trim().replace(/\.+$/, '').toLowerCase();
+const REASON_AR = new Map(Object.entries(REASON_AR_BY_EN).map(([en, ar]) => [normReason(en), ar]));
+// { ar, en } — en = null لو السبب غير معروف (بيتعرض زي ما هو في ar)
+function reasonParts(r) {
+  const raw = String(r ?? '').trim();
+  if (!raw) return { ar: '—', en: null };
+  const ar = REASON_AR.get(normReason(raw));
+  return ar ? { ar, en: raw } : { ar: raw, en: null };
+}
+
 // ─── §TOOL-JS::history — سجل تحديثات الشحنة (Drawer) ───
 const HIST_RESULT_LABELS = {
   written: 'تم التسجيل', delivered_duplicate_skipped: 'Delivered مسبقًا — بدون كتابة',
@@ -2117,6 +2174,7 @@ async function openHistoryDrawer(tn) {
       <div class="tl-item ${i === 0 ? 'latest' : ''}">
         <div class="tl-desc">${esc(e.description || '—')} <span style="color:var(--text-secondary);font-weight:400">(${esc(e.state)})</span></div>
         <div class="tl-meta"><span>${formatDateTime(e.received_at)}</span><span>محاولات: ${e.number_of_attempts ?? '—'}</span>${histBadge(e.write_status)}</div>
+        ${e.exception_reason ? (p => `<div class="tl-reason">سبب فشل التوصيل: <b>${esc(p.ar)}</b>${p.en ? `<span class="en">${esc(p.en)}</span>` : ''}</div>`)(reasonParts(e.exception_reason)) : ''}
       </div>`).join('')
       // صفر صفوف مش معناه "الشحنة ماتحركتش" — الويبهوك ما غطّاهاش
       : '<div class="hist-note">مفيش سجل مسجَّل لهذه الشحنة. الشحنات الأقدم من تسجيل رابط الويبهوك (20-09-2026) عمرها ما بعتت أي حدث — ده <b>مش</b> معناه إنها ما اتحركتش.</div>';
@@ -2154,11 +2212,21 @@ function renderResults() {
   // سجلات محاولات التسليم الفاشلة — الأحدث فوق (بوسطة بترجّعهم من الأقدم للأحدث)
   const excs = Array.isArray(d.exceptions) ? d.exceptions.slice().reverse() : [];
   const excHtml = excs.length
-    ? `<div class="exception-box"><strong>سجلات محاولات التسليم الفاشلة${excs.length > 1 ? ` (${excs.length})` : ''}</strong>`
-      + excs.map(x => `<div class="exc-item">${esc(x.reason || '—')}${x.code != null ? ` (${esc(x.code)})` : ''}`
-        + `<div class="exc-meta">${[x.userName, x.userPhone, x.time ? formatDateTime(x.time) : null]
-            .filter(Boolean).map(esc).join(' · ')}</div></div>`).join('')
-      + `</div>`
+    ? `<div class="exception-box"><div class="exc-hdr"><span>⚠️ سجلات محاولات التسليم الفاشلة</span><span class="cnt">${excs.length}</span></div>`
+      + `<div class="exc-list">` + excs.map((x, i) => {
+        const p = reasonParts(x.reason);
+        const meta = [
+          x.userName  ? `<span>🛵 ${esc(x.userName)}</span>` : '',
+          x.userPhone ? `<span class="ltr">📞 ${esc(x.userPhone)}</span>` : '',
+          x.time      ? `<span>${esc(formatDateTime(x.time))}</span>` : '',
+        ].join('');
+        return `<div class="exc-item"><span class="exc-no">${excs.length - i}</span><div class="exc-main">`
+          + `<div class="exc-top"><span class="exc-reason">${esc(p.ar)}</span>`
+          + `${x.code != null ? `<span class="exc-code">${esc(x.code)}</span>` : ''}`
+          + `${i === 0 && excs.length > 1 ? '<span class="exc-latest">الأحدث</span>' : ''}</div>`
+          + `${p.en ? `<div class="exc-en">${esc(p.en)}</div>` : ''}`
+          + `${meta ? `<div class="exc-meta">${meta}</div>` : ''}</div></div>`;
+      }).join('') + `</div></div>`
     : '';
   // شريط الأوردر: رقم مميّز + لينك شوبيفاي + S1/S2
   const sh = currentShopify;
