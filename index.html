@@ -822,6 +822,20 @@ body {
 .exc-meta { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--text-secondary); }
 .exc-meta .ltr { direction: ltr; unicode-bidi: embed; }
 
+/* ── الماديات والتحصيل (v3.5.0) ── */
+.info-box.ib-amber { background: var(--amber-light); border-color: var(--amber-border); }
+.info-box.ib-amber .ib-hdr { color: var(--amber-dark); }
+.fin-net { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.fin-net .amt { font-size:20px; font-weight:800; direction:ltr; unicode-bidi:embed; }
+.fin-net .amt.neg { color: var(--red); }
+.fin-net .amt.pos { color: var(--green); }
+.fin-net .lbl { font-size:12px; color: var(--text-secondary); }
+.fin-sub { margin:12px 0 6px; font-size:12px; font-weight:800; color: var(--text-mid); }
+.fin-tbl { width:100%; border-collapse:collapse; font-size:12.5px; }
+.fin-tbl td { padding:4px 0; border-bottom:1px dashed var(--border-strong); }
+.fin-tbl td.v { text-align:left; direction:ltr; unicode-bidi:embed; font-family:var(--font-mono); white-space:nowrap; }
+.fin-tbl tr.tot td { font-weight:800; border-bottom:none; }
+
 /* ── صناديق الموقع الحالي · الإلغاء · واتساب (v3.4.0) ── */
 .info-box { margin-top: 14px; padding: 12px 14px; border-radius: var(--radius-sm);
   background: var(--surface); border: 1px solid var(--border-strong); color: var(--text-primary); }
@@ -948,6 +962,16 @@ body {
       <div class="cl-version-block">
         <div class="cl-version-row">
           <span class="cl-ver-badge" id="clLatestVerBadge"></span>
+          <span class="cl-ver-date">10-11-2026</span>
+        </div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>قسم «💰 الماديات والتحصيل» في كل شحنة: COD وقيمة البضاعة، تفصيل رسوم بوسطة (شحن · فتح الطرد · تأمين · FlexShip · ضريبة)، <b>صافي الشحنة</b>، FlexShip، وحالة التحصيل / الـ cash-out.</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>الصافي = المحصَّل − رسوم بوسطة (مش «المودَع»)، والـ Worker بقى بينده تفاصيل الشحنة من بوسطة لكل شحنة عشان الرسوم.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row">
+          <span class="cl-ver-badge">v3.4.0</span>
           <span class="cl-ver-date">14-10-2026</span>
         </div>
         <ul class="cl-items">
@@ -1534,12 +1558,12 @@ async function apiGet(action, params = {}) {
 // ══════════════════════════════════════════════════════════════
 // §SHELL-JS — الإعدادات · النسخة · التوست · حارس نسخة الـ Worker
 // ══════════════════════════════════════════════════════════════
-const TOOL_VERSION = 'v3.4.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
+const TOOL_VERSION = 'v3.5.0';          // مصدر واحد: الهيدر + الـ Changelog + شاشة الدخول
 
 // أقل نسخة Worker الواجهة دي بتشتغل معاها. الواجهة بتبعت `tracking=` في lookup
 // وبتقرا addressClarityScore/exceptions[] (3.0.0) وبيقرا `shopify` (S1/S2) — اتضاف في Worker 3.1.0. و`typeCode`/`oldType` + `action=history` — اتضافوا في Worker 3.2.0.
 // **مالهاش أي علاقة بـ TOOL_VERSION.**
-const MIN_WORKER_VERSION = '3.4.0';   // 3.4.0: الموقع الحالي + الإلغاء + واتساب (location · canceledAt · whatsapp · callsNumber/smsNumber)
+const MIN_WORKER_VERSION = '3.5.0';   // 3.5.0: الماديات والتحصيل (finance) · 3.4.0: الموقع الحالي + الإلغاء + واتساب (location · canceledAt · whatsapp · callsNumber/smsNumber)
 
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
@@ -2299,6 +2323,94 @@ function renderLocationBox(d) {
     + `<div class="fields-grid">${fieldsGrid(rows)}</div></div>`;
 }
 
+// ─── v3.5.0: الماديات والتحصيل ───
+// 🔴 الصافي = المحصَّل − رسوم بوسطة (total_amount − bosta_fees) — مش deposited_amt (bosta-api-helper 8.15 ③).
+// 🔴 الأرقام دي معروضة من Worker `finance`؛ لو detailsOk=false مفيش رسوم ولا صافي (search مابيرجّعهمش) — بنقول كده صراحةً مش بنعرض أصفار.
+const COLLECTION_AR = {
+  cashed_out:       { t: 'اتحوّل في cash-out', cls: 'badge-success' },
+  awaiting_cashout: { t: 'اتحصّل ومستني التحويل', cls: 'badge-warn' },
+  no_cycle:         { t: 'لسه ماظهرش في الـ wallet', cls: 'badge-neutral' },
+  unknown:          { t: 'غير معروف', cls: 'badge-neutral' },
+};
+const FLEX_STATUS_AR = { Paid: 'مدفوع', Unpaid: 'غير مدفوع', 'Not Applicable': 'لا ينطبق' };
+const PAY_METHOD_AR  = { CASH: 'كاش' };
+const egp = v => (v === null || v === undefined) ? null : `${Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 })} EGP`;
+function renderFinanceBox(d) {
+  const f = d.finance;
+  if (!f) return '';
+  const cyc = f.cycle;
+  const rowsHtml = (rows) => rows.filter(r => r[1] !== null && r[1] !== undefined)
+    .map(([l, v, cls]) => `<tr class="${cls || ''}"><td>${esc(l)}</td><td class="v">${esc(egp(v))}</td></tr>`).join('');
+
+  // ١) الملخص: COD · قيمة البضاعة · الصافي
+  const netCls = f.net === null ? '' : (f.net < 0 ? 'neg' : 'pos');
+  const netHtml = f.net !== null
+    ? `<div class="fin-net"><span class="lbl">صافي الشحنة (المحصَّل − رسوم بوسطة)</span><span class="amt ${netCls}">${esc(egp(f.net))}</span></div>`
+    : '';
+  const sum = dropEmpty({
+    'COD':                     egp(f.cod),
+    'قيمة البضاعة':            egp(f.goodsAmount),
+    'رسوم الشحنة (تقدير بوسطة)': egp(f.shipmentFees),
+    'التأمين':                 f.insuranceFee !== null ? `${egp(f.insuranceFee)}${f.insurancePct !== null ? ` (${f.insurancePct * 100}%)` : ''}` : null,
+    'فتح الطرد':               f.allowToOpenPackage === null ? null : (f.allowToOpenPackage ? 'مسموح' : 'غير مسموح'),
+  });
+
+  // ٢) تفصيل الرسوم الفعلية من الـ wallet
+  let cycHtml = '';
+  if (cyc) {
+    const feeRows = [
+      ['شحن', cyc.shipping], ['رسم فتح الطرد', cyc.openingPackage], ['تأمين', cyc.insurance],
+      ['FlexShip (رسم)', cyc.flexShip && cyc.flexShip !== 0 ? cyc.flexShip : null],
+      ['ضريبة القيمة المضافة 14%', cyc.vat],
+      ['إجمالي رسوم بوسطة', cyc.boFees, 'tot'],
+    ];
+    const totRows = [
+      ['إجمالي المحصَّل', cyc.totalAmount],
+      ['رسوم بوسطة', cyc.boFees === null ? null : -cyc.boFees],
+      ['الصافي', f.net, 'tot'],
+    ];
+    cycHtml = `<div class="fin-sub">تفصيل رسوم بوسطة</div><table class="fin-tbl">${rowsHtml(feeRows)}</table>`
+      + `<div class="fin-sub">المحصَّل والصافي</div><table class="fin-tbl">${rowsHtml(totRows)}</table>`;
+  }
+
+  // ٣) FlexShip (الشحن المدفوع من العميل عند رفض الاستلام) — بيتحاسب على الراجع بس
+  let flexHtml = '';
+  if (f.flex && (f.flex.status !== 'Not Applicable' || f.flex.collectedAmount)) {
+    const fx = f.flex;
+    const rows = dropEmpty({
+      'الحالة':           mapOrRaw(FLEX_STATUS_AR, fx.status),
+      'المبلغ المطلوب':   egp(fx.amountToBeCollected),
+      'المحصَّل فعلًا':   egp(fx.collectedAmount),
+      'طريقة الدفع':      mapOrRaw(PAY_METHOD_AR, fx.paymentMethod),
+      'العميل رفض يدفع؟': fx.isCustomerRejectedToPay === true ? 'نعم' : null,
+    });
+    if (Object.keys(rows).length) flexHtml = `<div class="fin-sub">FlexShip</div><div class="fields-grid">${fieldsGrid(rows)}</div>`;
+  }
+
+  // ٤) حالة التحصيل / cash-out
+  const col = COLLECTION_AR[f.collection] || COLLECTION_AR.unknown;
+  const colRows = dropEmpty({
+    'رقم التحويل (Transfer ID)': f.cashoutTransactionId,
+    'تاريخ التحويل':            f.cashoutDate ? formatDateTime(f.cashoutDate) : null,
+    'تاريخ التحويل المتوقع':    f.expectedCashoutDate ? formatDateTime(f.expectedCashoutDate) : null,
+    'تاريخ الإيداع في الـ wallet': cyc && cyc.depositedAt ? formatDateTime(cyc.depositedAt) : null,
+  });
+  const colHtml = `<div class="fin-sub">التحصيل</div><div class="ib-main"><span class="badge ${col.cls}">${esc(col.t)}</span></div>`
+    + (Object.keys(colRows).length ? `<div class="fields-grid">${fieldsGrid(colRows)}</div>` : '');
+
+  const warn = !f.detailsOk
+    ? `<div class="ib-note" style="margin-bottom:8px">⚠️ تفاصيل الرسوم والـ wallet مش متاحة${f.detailsError ? ` (${esc(f.detailsError)})` : ''} — اللي ظاهر تحت من نتيجة البحث بس، والصافي مش محسوب.</div>`
+    : '';
+  const note = f.collection === 'no_cycle' && f.detailsOk
+    ? '<div class="ib-note" style="margin-top:8px">الشحنة لسه مظهرتش في الـ wallet (بتظهر بعد تأكيد التسليم/الرجوع) — الرسوم والصافي هيتحسبوا ساعتها.</div>'
+    : '';
+
+  return `<div class="info-box ib-amber"><div class="ib-hdr"><span>💰 الماديات والتحصيل</span></div>`
+    + warn + netHtml
+    + (Object.keys(sum).length ? `<div class="fields-grid">${fieldsGrid(sum)}</div>` : '')
+    + cycHtml + flexHtml + colHtml + note + `</div>`;
+}
+
 function renderResults() {
   const d = allDeliveries[activeIdx];
   if (!d) { document.getElementById('results').innerHTML = ''; return; }
@@ -2379,6 +2491,7 @@ function renderResults() {
           'ملاحظات':        d.notes,
           'وقت الاستلام':   d.pickedUpTime ? formatDateTime(d.pickedUpTime) : null,
         })}</div>
+        ${renderFinanceBox(d)}
         ${renderCancelBox(d)}
         ${renderWhatsappBox(d)}
         ${excHtml}
