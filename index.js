@@ -3,6 +3,10 @@
 // Worker: bosta-order-lookup-worker — EcomModa
 // skills: worker-builder v3.7.0 · html-builder v7.0.0 · bosta-api-helper v1.1.0 · constants v3.1.0 · shopify-graphql-helper v2.1.0 — 24-09-2026
 //
+// WORKER_VERSION 3.5.1 — `finance.onlinePayment` = `paymentInfo` (الدفع الأونلاين: amount · capturedStatus · provider · method · transactionId).
+// الأوردر المدفوع أونلاين `cod` بتاعه 0 و`wallet.cashCycle.total_amount` 0 — المبلغ الأونلاين مش في أي منهم، وبيرجع في `paymentInfo` (موجود في search وGET).
+// مقيس على شحنة واحدة (#50232: amount 1350 · SUCCEEDED · Flash) — قيم capturedStatus التانية مش معروفة فبتتعرض حرفيًا.
+//
 // WORKER_VERSION 3.5.0 — `lookup` بيرجّع لكل شحنة `finance` (الماديات والتحصيل): COD · قيمة البضاعة · رسوم بوسطة
 // (شحن/فتح طرد/تأمين/FlexShip/VAT) · الصافي (= total_amount − bosta_fees، **مش** deposited_amt) · FlexShip · حالة التحصيل/الـ cash-out.
 // 🔴 `POST /deliveries/search` مابيرجّعش الرسوم ولا الـ wallet (pricing:{} ) — فبننده `GET /deliveries/business/{tn}`
@@ -64,7 +68,7 @@
 // ══════════════════════════════════════════════════════════════
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
-const WORKER_VERSION = '3.5.0';
+const WORKER_VERSION = '3.5.1';
 
 // قيمة `tool` في جدول logs — ecommoda-constants §7
 const TOOL_NAME = 'bosta_lookup';
@@ -635,6 +639,15 @@ function shapeFinance(d, full, err) {
       amountToBeCollected: num(fx.amountToBeCollected), collectedAmount: num(fx.collectedAmount),
       paymentMethod: fx.paymentMethod ?? null,
     } : null,
+    // 🔴 الدفع الأونلاين: cod=0 وtotal_amount=0 — المبلغ في paymentInfo بس. مقيس على شحنة واحدة.
+    onlinePayment: (() => {
+      const p = src.paymentInfo || d.paymentInfo;
+      if (!p || typeof p !== 'object') return null;
+      return {
+        amount: num(p.amount), status: p.capturedStatus ?? null, provider: p.provider ?? null,
+        method: p.method ?? p.paymentType ?? null, transactionId: p.transactionId ?? null,
+      };
+    })(),
     collection,
     cashoutTransactionId: txId,
     cashoutDate: cashout?.transaction_date ?? null,
