@@ -3,6 +3,12 @@
 // Worker: bosta-order-lookup-worker — EcomModa
 // skills: worker-builder v3.7.0 · html-builder v7.0.0 · bosta-api-helper v1.1.0 · constants v3.1.0 · shopify-graphql-helper v2.1.0 — 24-09-2026
 //
+// WORKER_VERSION 3.5.0 — `lookup` بيرجّع لكل شحنة `finance` (الماديات والتحصيل): COD · قيمة البضاعة · رسوم بوسطة
+// (شحن/فتح طرد/تأمين/FlexShip/VAT) · الصافي (= total_amount − bosta_fees، **مش** deposited_amt) · FlexShip · حالة التحصيل/الـ cash-out.
+// 🔴 `POST /deliveries/search` مابيرجّعش الرسوم ولا الـ wallet (pricing:{} ) — فبننده `GET /deliveries/business/{tn}`
+// لكل شحنة (بحد أقصى MAX_FINANCE_FETCH، بالتوازي). فشل النداء مابيفشّلش البحث: `finance.detailsOk=false` والواجهة تعرض اللي في search بس.
+// قراية فقط — مفيش schema change. المصدر: bosta-api-helper Step 8.15.
+//
 // WORKER_VERSION 3.4.0 — `shapeDelivery` بيرجّع كمان: (١) `canceledAt` (state.canceled.time) و`whatsapp`
 // (whatsAppLastMileActions + confirmationStatus) و`callsNumber`/`smsNumber` — تفاصيل الإلغاء ومحادثات واتساب.
 // (٢) `location` = الموقع الحالي للشحنة (أول كتلة جوه `state` فيها `warehouse` — مثلًا receivedAtWarehouse للكود 24)،
@@ -58,7 +64,7 @@
 // ══════════════════════════════════════════════════════════════
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
-const WORKER_VERSION = '3.4.0';
+const WORKER_VERSION = '3.5.0';
 
 // قيمة `tool` في جدول logs — ecommoda-constants §7
 const TOOL_NAME = 'bosta_lookup';
@@ -568,6 +574,90 @@ function shapeDelivery(d) {
   };
 }
 
+// ─── §BOSTA::finance — الماديات والتحصيل (bosta-api-helper Step 8.15) ───
+// 🔴 search مابيرجّعش pricing/wallet — الرسوم والصافي من `GET /deliveries/business/{tn}` بس.
+const MAX_FINANCE_FETCH = 5;
+const num = v => (v === null || v === undefined || v === '' || !isFinite(Number(v))) ? null : Number(v);
+const round2 = v => v === null ? null : Math.round(v * 100) / 100;
+
+async function fetchDeliveryFull(env, trackingNumber) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const resp = await fetch(`${BOSTA_API_BASE}/deliveries/business/${encodeURIComponent(trackingNumber)}`, {
+      headers: { 'Authorization': env.BOSTA_API_KEY, 'Content-Type': 'application/json' },
+      signal: ctl.signal,
+    });
+    const text = await resp.text();
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const raw = JSON.parse(text);
+    const d = (raw?.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) ? raw.data : raw;
+    if (!d || typeof d !== 'object') throw new Error('رد فاضي');
+    return d;
+  } finally { clearTimeout(timer); }
+}
+
+// d = رد search · full = رد GET (أو null لو فشل) · err = سبب الفشل
+function shapeFinance(d, full, err) {
+  const src   = full || d;
+  const cycle = full?.wallet?.cashCycle || null;
+  const cashout = full?.wallet?.cashout || null;
+  const fx    = src.flexShippingInfo || d.flexShippingInfo || null;
+  const totalAmount = num(cycle?.total_amount);
+  const boFees   = num(cycle?.bosta_fees);
+  // 🔴 الصافي = total_amount − bosta_fees. deposited_amt بيغلط بقيمة الـ FlexShip المحصّل على الراجع المدفوع (8.15 ③).
+  const net = (totalAmount !== null && boFees !== null) ? round2(totalAmount - boFees) : null;
+  const txId = cashout?.transaction_id ?? d.cashoutInfo?.oracleTransactionId ?? null;
+  let collection; // cashed_out · awaiting_cashout · no_cycle · unknown
+  if (!full) collection = 'unknown';
+  else if (!cycle) collection = 'no_cycle';
+  else collection = txId ? 'cashed_out' : 'awaiting_cashout';
+  return {
+    detailsOk: !!full,
+    detailsError: full ? null : (err || null),
+    cod: num(src.cod ?? d.cod),
+    goodsAmount: num(src.goodsInfo?.amount ?? d.goodsInfo?.amount),
+    shipmentFees: num(src.shipmentFees ?? d.shipmentFees),
+    insuranceFee: num(full?.pricing?.insuranceFee?.amount),
+    insurancePct: num(full?.pricing?.insuranceFee?.percentage),
+    allowToOpenPackage: src.allowToOpenPackage ?? d.allowToOpenPackage ?? null,
+    cycle: cycle ? {
+      shipping: num(cycle.shipping_fees), openingPackage: num(cycle.opening_package_fees),
+      insurance: num(cycle.insurance_fees), flexShip: num(cycle.flex_ship_fees),
+      vat: num(cycle.vat), boFees, cod: num(cycle.cod), totalAmount,
+      flexShipAmount: num(cycle.flex_ship_amount), depositedAmt: num(cycle.deposited_amt),
+      depositedAt: cycle.deposited_at ?? null,
+    } : null,
+    net,
+    flex: fx ? {
+      status: fx.status ?? null, isAmountCollected: fx.isAmountCollected ?? null,
+      isCustomerRejectedToPay: fx.isCustomerRejectedToPay ?? null,
+      amountToBeCollected: num(fx.amountToBeCollected), collectedAmount: num(fx.collectedAmount),
+      paymentMethod: fx.paymentMethod ?? null,
+    } : null,
+    collection,
+    cashoutTransactionId: txId,
+    cashoutDate: cashout?.transaction_date ?? null,
+    expectedCashoutDate: d.cashoutInfo?.expectedCashoutDate ?? cashout?.next_cashout_date ?? null,
+  };
+}
+
+// بيجيب الماديات لكل شحنة بالتوازي (حد أقصى) — فشل شحنة واحدة مابيأثرش على الباقي ولا على البحث.
+async function shapeAll(env, deliveries) {
+  return Promise.all(deliveries.map(async (d, i) => {
+    const shaped = shapeDelivery(d);
+    let full = null, err = null;
+    if (i >= MAX_FINANCE_FETCH) err = `تفاصيل الرسوم متجلبتش (أكتر من ${MAX_FINANCE_FETCH} شحنات)`;
+    else if (!d.trackingNumber) err = 'مفيش رقم تتبع';
+    else {
+      try { full = await fetchDeliveryFull(env, d.trackingNumber); }
+      catch (e) { err = e.name === 'AbortError' ? 'انتهت المهلة' : e.message; }
+    }
+    shaped.finance = shapeFinance(d, full, err);
+    return shaped;
+  }));
+}
+
 // ══════════════════════════════════════════════════════════════
 // §SHOPIFY — قراءة فقط (ميتافيلدز S1/S2 + رقم الأوردر الداخلي للرابط)
 // ══════════════════════════════════════════════════════════════
@@ -756,7 +846,7 @@ export default {
             orderNumber: ref,
             shopify:     await safeShopifyInfo(env, ref),
             count:       deliveries.length,
-            deliveries:  deliveries.map(shapeDelivery),
+            deliveries:  await shapeAll(env, deliveries),
           }, 200, request);
         }
 
@@ -771,7 +861,7 @@ export default {
           orderNumber,
           shopify:     deliveries.length ? await safeShopifyInfo(env, orderNumber) : null,
           count:       deliveries.length,
-          deliveries:  deliveries.map(shapeDelivery),
+          deliveries:  await shapeAll(env, deliveries),
         }, 200, request);
       }
       // ──────────────────────────────────────────────────────────────

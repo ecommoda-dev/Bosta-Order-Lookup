@@ -2,14 +2,176 @@
 
 # البحث عن أوردر بوسطة (`Bosta-Order-Lookup`)
 
-![version](https://img.shields.io/badge/version-v3.4.0-blue)
+![version](https://img.shields.io/badge/version-v3.5.0-blue)
 
 **بتعمل إيه:** البحث عن شحنة بوسطة برقم الأوردر (Business Reference) وعرض حالتها،
 مع زرار لمزامنة 4 ميتافيلدز على أوردر Shopify، وسجل عمليات في D1.
 **مين بيستخدمها:** مخزن / خدمة عملاء
-**الإصدار:** Worker `v3.4.0` · الواجهة `v3.4.0`
+**الإصدار:** Worker `v3.5.0` · الواجهة `v3.5.0`
 
-> 🆕 **v3.4.0 (14-10-2026):** `lookup` بيرجّع كمان `location` و`canceledAt` و`whatsapp` و`callsNumber`/`smsNumber`، والواجهة بتعرض 3 أقسام جوه «بيانات الشحنة»: «📍 الموقع الحالي للشحنة» · «🚫 تفاصيل الإلغاء» · «💬 محادثات واتساب مع العميل». الموجود بس بيتعرض. `MIN_WORKER_VERSION` بقت `3.4.0`.
+> 🆕 **v3.5.0 (10-11-2026):** `lookup` بيرجّع لكل شحنة `finance` والواجهة بتعرض قسم «💰 الماديات والتحصيل»: COD · قيمة البضاعة · تفصيل رسوم بوسطة (شحن / فتح طرد / تأمين / FlexShip / VAT) · **الصافي** · FlexShip · حالة التحصيل (`اتحوّل في cash-out` / `اتحصّل ومستني التحويل` / `لسه ماظهرش في الـ wallet`). `MIN_WORKER_VERSION` بقت `3.5.0`.
+> 🔴 **الرسوم مش في `search`** (`pricing:{}` وبلا `wallet`) — الـ Worker بينده `GET /deliveries/business/{tn}` لكل شحنة (حد أقصى 5، بالتوازي، مهلة 8 ثواني). فشله مابيفشّلش البحث: `finance.detailsOk=false` والواجهة بتقول إن الرسوم والصافي مش محسوبين بدل ما تعرض أصفار.
+> 🔴 **الصافي = `total_amount − bosta_fees`** — **مش `deposited_amt`** (بيغلط بقيمة FlexShip المحصّل على الراجع المدفوع). `wallet.cashout.amount` **متعرضش** كمبلغ تحويل (مش متطابق مع الـ receipt). صفحات `/wallet/*` بتحتاج JWT مستخدم ومش بتشتغل بالمفتاح الخام — مش مستخدمة (`bosta-api-helper` 8.15).
+> ⚠️ «اتحصّل ومستني التحويل» **استنتاج** (cycle موجود وبلا `transaction_id`) مش حقل صريح من بوسطة، و«اتحوّل» مش دليل إن الفلوس وصلت البنك.
+
+> **v3.4.0 (14-10-2026):** `lookup` بيرجّع كمان `location` و`canceledAt` و`whatsapp` و`callsNumber`/`smsNumber`، والواجهة بتعرض 3 أقسام جوه «بيانات الشحنة»: «📍 الموقع الحالي للشحنة» · «🚫 تفاصيل الإلغاء» · «💬 محادثات واتساب مع العميل». الموجود بس بيتعرض. `MIN_WORKER_VERSION` بقت `3.4.0`.
+> 🔴 **الإلغاء مش مربوط بكود الحالة** — شحنة `24 Received at warehouse` ممكن تكون ملغية (`state.canceled.time` · `whatsAppLastMileActions.cancel.isCancelled` · `confirmationStatus.value === 'cancelled'`). أي واحدة منهم بتخلّي القسم يظهر والكارت كله أحمر. مفيش حقل «سبب إلغاء» صريح في بوسطة؛ «سبب مرتبط» بيتعرض بس لو آخر محاولة فاشلة سببها بيبدأ بـ `Cancellation`.
+> 🔴 **الموقع الحالي** = أول كتلة جوه `state` فيها `warehouse` (مثلًا `receivedAtWarehouse` للكود 24). الحالات التانية (30 · 41 …) مالهاش كتلة معروفة فبتعرض «الموقع غير متاح لهذه الحالة» — متخمّنش موقع من `holder`. قيم `confirmationStatus`/`orderStatus`/`warehouse.type` المعروفة بس متعرّبة، والباقي حرفيًا.
+
+> **v3.3.0 (13-10-2026):** (١) `?action=history` بيرجّع كمان `exception_reason` (كان ناقص من الـ SELECT) والواجهة بتعرضه **معرّبًا** تحت كل حدث في «🕘 سجل التحديثات». (٢) «سجلات محاولات التسليم الفاشلة» اتعاد تصميمها: كارت لكل محاولة مرقّمة، السبب بالعربي والأصل الإنجليزي تحته، الكود، المندوب/التليفون/الوقت. `MIN_WORKER_VERSION` بقت `3.3.0`.
+> ⚠️ **قائمة التعريب `REASON_AR_BY_EN` نسخة تانية من اللي في `Delivery-COD-Operations-Center/Bosta-Webhook-Status-Receiver.html`** — أي سبب جديد يتضاف في الاتنين (غير المعروف بيتعرض حرفيًا).
+
+> **v3.2.0 (03-10-2026):** (١) `lookup` بيرجّع كمان `typeCode` و`oldType` والواجهة بتعرض «Return to Origin — كانت: Send/Exchange» لما `typeCode === 20`. (٢) زرار «🕘 سجل التحديثات» + `?action=history&tracking=<tn>` — قراءة فقط من `bosta_webhook_events` (نفس D1 بتاع `Bosta-Webhook-Status-Receiver`). محتاج جدول الويبهوك موجود؛ ناقص = 503 صريح. الشحنات الأقدم من تسجيل الويبهوك (20-09-2026) مالهاش سجل والواجهة بتوضّح ده.
+> ⚠️ **لسه مش متأكَّد:** إن `POST /deliveries/search` بيرجّع `oldType` فعلًا (اتلقط من الـ Raw Payload على شحنات RTO). لو الحقل مش ظاهر في Raw Payload لشحنة `type 20` حقيقية، الحل نداء `GET /deliveries/business/{tn}` للشحنات `typeCode 20` بس.
+
+> 🔴 **v3.1.0:** `lookup` بيرجّع كمان `shopify` (قراءة فقط: S1/S2 ورقم الأوردر للينك). محتاج تضيف `CLIENT_ID` و`CLIENT_SECRET` كـ Secrets + Promote (`SHOP_DOMAIN` جاي من `wrangler.toml`). لو ناقصين، البحث في بوسطة يشتغل عادي والواجهة تعرض تنبيه بدل S1/S2.
+
+## الروابط
+
+```
+الواجهة    : https://ecommoda-dev.github.io/Bosta-Order-Lookup/
+الـ Worker : https://bosta-order-lookup-worker.ecommoda-dev.workers.dev
+اسم الـ Worker في الداشبورد: bosta-order-lookup-worker     ← لازم يطابق name في wrangler.toml
+```
+
+## الـ Endpoints
+
+كل النداءات بقت `?action=` وكلها بتتطلّب `Authorization: Bearer <WORKER_SECRET>`.
+
+| المسار | بيعمل إيه |
+|---|---|
+| `GET ?action=lookup&order=<ref>` | بحث عن شحنة بوسطة بالـ Business Reference |
+| `POST ?action=sync` | مزامنة 4 ميتافيلدز (`bosta_tracking_number` · `bosta_webhook` · `bosta_order_type` · `bosta_number_of_attempts`) على أوردر Shopify |
+| `GET ?action=check_employee` · `POST register_pin` · `POST verify_employee` · `GET log_logout` · `GET get_employees` | Universal D1 Auth |
+| `GET ?action=get_logs` · `get_logs_count` · `get_logs_export` | سجل العمليات + التصدير |
+| `GET ?action=history&tracking=<tn>` | سجل أحداث شحنة من جدول `bosta_webhook_events` (قراءة فقط، 503 لو الجدول ناقص) |
+| `GET ?action=diag` · `get_config` | الفحص الذاتي ونسخة الـ Worker |
+
+> ⛔ **الشكل القديم اتشال في v2.0.0:** `GET /?order=` و`POST /sync` مابقوش شغالين.
+> السبب إنهم كانوا **بلا أي مصادقة**، فأي حد يعرف الرابط كان يقدر يكتب ميتافيلدز
+> على أي أوردر. أي أداة تانية كانت بتناديهم لازم تتحدّث (مفيش حاجة معروفة بتناديهم
+> غير الواجهة دي).
+
+## D1
+
+**الأداة بقى فيها D1** (اتضاف 12-09-2026) — Universal D1 Auth + سجل عمليات.
+
+```
+Binding : DB → ecommoda-dev-logs (90db62d3-bd7e-4d92-912b-10fc78eeb565)
+tool    : bosta_lookup
+type    : sync · rejected · login · logout
+```
+
+> 🔴 **بند إلزامي مفتوح:** الصف ده لازم يتسجّل في `ecommoda-constants` §7
+> **قبل** أول نشر. `bosta_lookup` مذكورة حاليًا في §11 بند 5 كأداة بلا D1 —
+> البند ده بيتقفل بتسجيل القيم فوق في جدول §7 وتحديث بند 5.
+
+### الحارس الديناميكي (الطبقة ٥ — من v2.0.1)
+
+`writeLog` بقى بيحمي نفسه وقت التشغيل: أي `(tool, type)` مش موجود في
+`LOG_REGISTRY` (مبني من `log-values.json` جنبه) بيتكتب **عادي** + يتعلّم
+`extra._unregistered = true` + يتسجّل تنبيه UPSERT في `log_value_alerts`
+(جدول مشترك على مستوى الستاك) — **مفيش رفض كتابة أبدًا**. التفاصيل →
+`ecommoda-worker-builder` Step 7-ج. الأداة دي مالهاش `writeLogsBatch` ولا
+أنكور تاني غير `writeLog` نفسها (اللي `safeLog` بتلفّها) — فالحارس في مكان
+واحد بس.
+
+### استعلام خط الأساس
+
+```sql
+-- ✅ بيقيس الكتابة الفعلية (مش المحاولات)
+SELECT COUNT(*) FROM logs
+WHERE tool = 'bosta_lookup' AND type = 'sync'
+  AND json_extract(extra,'$.result') = 'success';
+```
+
+## المضبوط فعليًا في الداشبورد
+
+> اللي **متظبط بالفعل** — مش اللي المفروض يكون.
+
+```
+Bindings : DB (D1)            ← جديد في v2.0.0، بيتطبّق من wrangler.toml
+Secrets  : BOSTA_API_KEY · CLIENT_ID · CLIENT_SECRET
+           🔴 WORKER_SECRET   ← جديد في v2.0.0، لسه محتاج يتضاف يدويًا + Promote
+Vars     : SHOP_DOMAIN        ← من [vars] في wrangler.toml
+Build watch paths : * الافتراضي
+```
+
+## CORS
+
+`Option B` — قائمة مصادر صارمة: `https://ecommoda-dev.github.io` بس.
+
+اتغيّر في v2.0.0 من `*` (wildcard). السبب: دي أداة **بتكتب** على شوبيفاي،
+و`ecommoda-worker-builder` Step 3 بيفرض Option B لأي أداة كتابة. الوايلدكارد
+مع غياب `WORKER_SECRET` كان معناه endpoint كتابة مفتوح للإنترنت.
+
+## فخاخ الأداة دي
+
+- **الـ Worker مابيثقش في بيانات الواجهة.** `sync` بياخد `trackingNumber` بس،
+  وبيرجع يقرا الشحنة من بوسطة بنفسه. لو عدّلت ده وخليته ياخد كائن الشحنة من
+  الـ body، بترجّع الثغرة اللي v2.0.0 اتعملت عشانها.
+- **البحث بالاسم على شوبيفاي بحث مش lookup.** `findOrderByName` بتفلتر على
+  تطابق حرفي (`node.name === '#1780'`) قبل أي كتابة. شيل الفلتر ده = كتابة على
+  أوردر تاني من غير أي رسالة.
+- **`businessReference` لازم بالهاش.** من غيرها بوسطة بترجّع صفر نتايج **بلا
+  خطأ** — الـ Worker بيضيفها بنفسه دلوقتي، متشيلهاش.
+- **`STATE_MAP` لازم تفضل كاملة.** `state.value` بيرجّع "Delivered" للكود ٤٥
+  **و٤٦** الاتنين، فأي كود ناقص من الماب بيقع على fallback غلط ويتكتب على
+  شوبيفاي.
+- `SHOP_DOMAIN` مستخدم في 3 أماكن (OAuth + نداءين GraphQL) — بس بقى محروس بـ
+  `assertEnv`، فالرسالة بتقول اسم المتغيّر الناقص بدل `error code: 1003`.
+- **`esc()` بتستخدم `"`/`'` جوّه الـ regex عن قصد** — علامة اقتباس
+  خام جوّه regex literal بتكسر فحص الربط (Step 9B) وتخلّيه يبلّغ عن دوال معرّفة
+  إنها مش معرّفة. السلوك وقت التشغيل واحد.
+
+- 🔴 **`history` صفر صفوف مش دليل.** الشحنة اللي مالهاش أحداث ممكن تكون أقدم من تسجيل الويبهوك مش ساكنة. الواجهة بتقول كده صراحةً، وفشل الاستعلام بيتعرض كخطأ مش «مفيش سجل».
+- 🔴 **الفلترة بالنوع على `typeCode` مش على النص.** شحنة `Send`/`Exchange` اللي بوسطة رجّعتها بتبقى `20` و`oldType` بيقول الأصل (`bosta-api-helper` Step 2).
+
+## استرجاع النسخ القديمة
+
+> ده بديل الـ tags — دفع الـ tags ممنوع من جلسات Claude Code السحابية.
+
+```
+النسخة الأخيرة قبل إعادة البناء (v1.0.0):
+  630d11f  Update wrangler.toml        ← آخر كوميت على v1.0.0
+git show 630d11f:index.js
+git show 630d11f:index.html
+
+تاريخ الواجهة قبل النقل (Index.html) على main:
+  d7c81f0  Create Index.html
+  81ddbfb  Update Index.html
+  864cd38  Update Index.html
+git show <sha>:Index.html
+```
+
+## بصمة المهارات
+
+> الصيغة والقواعد والمهارات اللي بتدخل الجدول → `ecommoda-skill-versioning`
+> Step 4. مهارة مالهاش رقم إصدار مابتدخلش الجدول.
+
+| المهارة | الإصدار وقت آخر تعديل |
+|---|---|
+| ecommoda-worker-builder | v3.7.0 |
+| ecommoda-html-builder | v7.0.0 |
+| bosta-api-helper | v1.1.0 |
+| ecommoda-constants | v3.1.0 |
+| shopify-graphql-helper | v2.1.0 |
+
+آخر مطابقة: 24-09-2026 · `index.js` v2.0.1 · `index.html` v2.0.0
+🔴 معلّقة: — لا شيء
+
+## مسائل مفتوحة
+
+- 🔴 **تسجيل `bosta_lookup` في `ecommoda-constants` §7** بالقيم
+  (`sync` · `rejected` · `login` · `logout`) وتحديث §11 بند 5 — **قبل أول نشر**.
+- 🔴 **إضافة `WORKER_SECRET` في الداشبورد + Promote** — الـ Worker بيرد 500
+  على كل نداء لحد ما يتضاف (برسالة صريحة، مش فشل صامت).
+- الموظفين لازم يكونوا موجودين في جدول `employees` وليهم PIN عشان يدخلوا.
+
+آخر تحديث: 12-09-2026 — 14:30
+
+</div>
+ `lookup` بيرجّع كمان `location` و`canceledAt` و`whatsapp` و`callsNumber`/`smsNumber`، والواجهة بتعرض 3 أقسام جوه «بيانات الشحنة»: «📍 الموقع الحالي للشحنة» · «🚫 تفاصيل الإلغاء» · «💬 محادثات واتساب مع العميل». الموجود بس بيتعرض. `MIN_WORKER_VERSION` بقت `3.4.0`.
 > 🔴 **الإلغاء مش مربوط بكود الحالة** — شحنة `24 Received at warehouse` ممكن تكون ملغية (`state.canceled.time` · `whatsAppLastMileActions.cancel.isCancelled` · `confirmationStatus.value === 'cancelled'`). أي واحدة منهم بتخلّي القسم يظهر والكارت كله أحمر. مفيش حقل «سبب إلغاء» صريح في بوسطة؛ «سبب مرتبط» بيتعرض بس لو آخر محاولة فاشلة سببها بيبدأ بـ `Cancellation`.
 > 🔴 **الموقع الحالي** = أول كتلة جوه `state` فيها `warehouse` (مثلًا `receivedAtWarehouse` للكود 24). الحالات التانية (30 · 41 …) مالهاش كتلة معروفة فبتعرض «الموقع غير متاح لهذه الحالة» — متخمّنش موقع من `holder`. قيم `confirmationStatus`/`orderStatus`/`warehouse.type` المعروفة بس متعرّبة، والباقي حرفيًا.
 
