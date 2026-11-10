@@ -3,6 +3,10 @@
 // Worker: bosta-order-lookup-worker — EcomModa
 // skills: worker-builder v3.7.0 · html-builder v7.0.0 · bosta-api-helper v1.1.0 · constants v3.1.0 · shopify-graphql-helper v2.1.0 — 24-09-2026
 //
+// WORKER_VERSION 3.5.2 — 🔴 تصحيح: الصافي = total_amount + المبلغ الأونلاين (لو capturedStatus=SUCCEEDED) − bosta_fees.
+// اتأكد من ملف التحصيل WEDCOD12AUG26 (عمود Net Value) على 3 أوردرات: 1350−133.95=1216.05 · 2700−137.94=2562.06 · 1350−119.13=1230.87.
+// المبلغ الأونلاين بيتسوّى في نفس الـ cash-out. الأوردر الأونلاين `cod`=0 و`total_amount`=0 فالصافي القديم (−الرسوم) كان غلط.
+//
 // WORKER_VERSION 3.5.1 — `finance.onlinePayment` = `paymentInfo` (الدفع الأونلاين: amount · capturedStatus · provider · method · transactionId).
 // الأوردر المدفوع أونلاين `cod` بتاعه 0 و`wallet.cashCycle.total_amount` 0 — المبلغ الأونلاين مش في أي منهم، وبيرجع في `paymentInfo` (موجود في search وGET).
 // مقيس على شحنة واحدة (#50232: amount 1350 · SUCCEEDED · Flash) — قيم capturedStatus التانية مش معروفة فبتتعرض حرفيًا.
@@ -68,7 +72,7 @@
 // ══════════════════════════════════════════════════════════════
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
-const WORKER_VERSION = '3.5.1';
+const WORKER_VERSION = '3.5.2';
 
 // قيمة `tool` في جدول logs — ecommoda-constants §7
 const TOOL_NAME = 'bosta_lookup';
@@ -610,7 +614,11 @@ function shapeFinance(d, full, err) {
   const totalAmount = num(cycle?.total_amount);
   const boFees   = num(cycle?.bosta_fees);
   // 🔴 الصافي = total_amount − bosta_fees. deposited_amt بيغلط بقيمة الـ FlexShip المحصّل على الراجع المدفوع (8.15 ③).
-  const net = (totalAmount !== null && boFees !== null) ? round2(totalAmount - boFees) : null;
+  const pi = src.paymentInfo || d.paymentInfo;
+  const onlineOk = !!pi && typeof pi === 'object' && num(pi.amount) !== null
+    && String(pi.capturedStatus || '').toUpperCase() === 'SUCCEEDED';
+  const onlineAmt = onlineOk ? num(pi.amount) : 0;
+  const net = (totalAmount !== null && boFees !== null) ? round2(totalAmount + onlineAmt - boFees) : null;
   const txId = cashout?.transaction_id ?? d.cashoutInfo?.oracleTransactionId ?? null;
   let collection; // cashed_out · awaiting_cashout · no_cycle · unknown
   if (!full) collection = 'unknown';
